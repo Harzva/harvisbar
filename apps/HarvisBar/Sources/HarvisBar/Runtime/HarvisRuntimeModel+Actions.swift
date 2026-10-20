@@ -260,7 +260,7 @@ extension HarvisRuntimeModel {
         ) { [weak self] _, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                lastError = error.map { clean($0.localizedDescription) }
+                self.lastError = error.map { self.clean($0.localizedDescription) }
             }
         }
     }

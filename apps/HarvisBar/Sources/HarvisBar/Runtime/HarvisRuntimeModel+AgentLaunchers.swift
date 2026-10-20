@@ -138,12 +138,12 @@ extension HarvisRuntimeModel {
         ) { [weak self] _, error in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                agentLauncherOpeningIDs.remove(targetID)
+                self.agentLauncherOpeningIDs.remove(targetID)
                 if let error {
-                    lastError = "\(targetLabel) could not open. \(clean(error.localizedDescription))"
+                    self.lastError = "\(targetLabel) could not open. \(self.clean(error.localizedDescription))"
                 } else {
-                    lastActionOutput = "Opened \(targetLabel)."
-                    lastError = nil
+                    self.lastActionOutput = "Opened \(targetLabel)."
+                    self.lastError = nil
                 }
             }
         }

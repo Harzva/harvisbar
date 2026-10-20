@@ -128,12 +128,12 @@ extension HarvisRuntimeModel {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     if let error {
-                        credentialActionMessage = clean(error.localizedDescription)
-                        credentialActionSucceeded = false
+                        self.credentialActionMessage = self.clean(error.localizedDescription)
+                        self.credentialActionSucceeded = false
                     } else {
-                        credentialActionMessage = "已用文本编辑打开本地 JSON"
-                        credentialActionSucceeded = true
-                        lastError = nil
+                        self.credentialActionMessage = "已用文本编辑打开本地 JSON"
+                        self.credentialActionSucceeded = true
+                        self.lastError = nil
                     }
                 }
             }
