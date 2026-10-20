@@ -130,6 +130,12 @@ explicit test flags. Live provider, service, GUI, and packaging acceptance
 checks are separate from the default unit tests. Tests should use temporary
 directories, dummy credentials, and synthetic conversations.
 
+CI explicitly selects Xcode 26.3 and checks the system Git's quiet upstream
+lookup before testing. Git-based source/version inspection needs the behavior
+[fixed in Git 2.41](https://github.com/git/git/commit/dfbfdc5); older system Git
+versions can cause that inspection to fail closed. The inspector deliberately
+uses `/usr/bin/git`, so changing only `PATH` does not select another Git for it.
+
 ## Repository map
 
 | Path | Purpose |

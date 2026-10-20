@@ -84,47 +84,32 @@ final class AgentManagedCoreDependencyTests: XCTestCase {
     func testCoreCompilerDependencyGraphAllowsOnlyFoundation() throws {
         let moduleName = "AgentManagedCorePurityProbe"
         let files = try coreSourceFiles()
-        let allowedDependencies: Set<String> = [
-            "swift:Swift",
-            "swift:SwiftOnoneSupport",
-            "swift:_Concurrency",
-            "swift:_StringProcessing",
-            "swift:Foundation",
-            "clang:_SwiftConcurrencyShims",
-        ]
+        let fixtureDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HarvisBar-Core-Imports-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: fixtureDirectory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: fixtureDirectory) }
+        let foundationOnlyFile = fixtureDirectory.appendingPathComponent("FoundationOnly.swift")
+        try "import Foundation\n".write(to: foundationOnlyFile, atomically: true, encoding: .utf8)
+
         for configurationArguments in [
             ["-DSWIFT_PACKAGE"],
             ["-DSWIFT_PACKAGE", "-DDEBUG"],
         ] {
-            let result = try runSwiftCompiler(
-                arguments: [
-                    "swiftc",
-                    "-swift-version", "6",
-                    "-parse-as-library",
-                    "-whole-module-optimization",
-                    "-module-name", moduleName,
-                    "-scan-dependencies",
-                ] + configurationArguments + files.map(\.path) + ["-o", "-"]
+            // Older scanners include Foundation overlays in directDependencies.
+            // Compare with this compiler's Foundation-only scan, not a transitive
+            // closure that could also allow a new explicit framework import.
+            let foundationOnlyMain = try scanMainModule(
+                files: [foundationOnlyFile],
+                moduleName: moduleName,
+                configurationArguments: configurationArguments
             )
-            XCTAssertEqual(
-                result.status,
-                0,
-                "Core dependency scan failed \(configurationArguments):\n\(result.text)"
-            )
-            guard result.status == 0 else { continue }
-
-            let graph = try XCTUnwrap(
-                try JSONSerialization.jsonObject(with: result.output)
-                    as? [String: Any]
-            )
-            XCTAssertEqual(graph["mainModuleName"] as? String, moduleName)
-            let modules = try XCTUnwrap(graph["modules"] as? [Any])
-            let mainIndex = try XCTUnwrap(modules.firstIndex { item in
-                (item as? [String: Any])?["swift"] as? String == moduleName
-            })
-            XCTAssertLessThan(mainIndex + 1, modules.count)
-            let main = try XCTUnwrap(
-                modules[mainIndex + 1] as? [String: Any]
+            let main = try scanMainModule(
+                files: files,
+                moduleName: moduleName,
+                configurationArguments: configurationArguments
             )
 
             let scannedFiles = Set(
@@ -138,51 +123,144 @@ final class AgentManagedCoreDependencyTests: XCTestCase {
                 "The compiler scan must include every recursively discovered Core source"
             )
 
-            let directDependencies = dependencyNames(
-                try XCTUnwrap(main["directDependencies"] as? [Any])
+            let unexpected = try unexpectedCoreDependencies(
+                in: main,
+                foundationOnlyMain: foundationOnlyMain
             )
             XCTAssertTrue(
-                directDependencies.isSubset(of: allowedDependencies),
-                "Unexpected direct Core dependencies: \(directDependencies.subtracting(allowedDependencies))"
-            )
-
-            let details = try XCTUnwrap(main["details"] as? [String: Any])
-            let swiftDetails = try XCTUnwrap(
-                details["swift"] as? [String: Any]
-            )
-            let sourceDependencies = dependencyNames(
-                try XCTUnwrap(
-                    swiftDetails["sourceImportedDependencies"] as? [Any]
-                )
-            )
-            XCTAssertTrue(
-                sourceDependencies.isSubset(of: allowedDependencies),
-                "Unexpected source-imported Core dependencies: \(sourceDependencies.subtracting(allowedDependencies))"
-            )
-
-            let sourceImportNames = Set(
-                (try XCTUnwrap(main["imports"] as? [[String: Any]]))
-                    .filter { record in
-                        guard let locations = record["importLocations"]
-                            as? [[String: Any]]
-                        else {
-                            return false
-                        }
-                        return locations.contains { location in
-                            guard let path = location["bufferIdentifier"] as? String
-                            else {
-                                return false
-                            }
-                            return path.hasPrefix(coreDirectory().path + "/")
-                        }
-                    }
-                    .compactMap { $0["identifier"] as? String }
-            )
-            XCTAssertTrue(
-                sourceImportNames.isSubset(of: ["Foundation"]),
-                "Core source imports are restricted to Foundation: \(sourceImportNames)"
+                unexpected.isEmpty,
+                "Unexpected Core dependencies: \(unexpected)"
             )
         }
+    }
+
+    func testLegacyDependencyGraphUsesFoundationOnlyBaseline() throws {
+        let baseline: [String: Any] = [
+            "directDependencies": [
+                ["swift": "Foundation"], ["swift": "Swift"],
+                ["swift": "Darwin"], ["swift": "_math"],
+                ["clang": "_Darwin_xlocale"],
+            ],
+            "details": ["swift": ["isFramework": false]],
+        ]
+        XCTAssertEqual(
+            try unexpectedCoreDependencies(in: baseline, foundationOnlyMain: baseline),
+            []
+        )
+        for module in ["AppKit", "SwiftUI", "ThirdPartyCore"] {
+            var main = baseline
+            main["directDependencies"] = try XCTUnwrap(
+                baseline["directDependencies"] as? [[String: String]]
+            ) + [["swift": module]]
+            XCTAssertEqual(
+                try unexpectedCoreDependencies(in: main, foundationOnlyMain: baseline),
+                ["swift:\(module)"]
+            )
+        }
+    }
+
+    func testModernDependencyGraphStillChecksSourceImportMetadata() throws {
+        let baseline: [String: Any] = [
+            "directDependencies": [["swift": "Foundation"], ["swift": "Swift"]],
+            "details": ["swift": ["isFramework": false]],
+        ]
+        var main = baseline
+        main["details"] = ["swift": [
+            "sourceImportedDependencies": [["swift": "Foundation"]],
+        ]]
+        main["imports"] = [[
+            "identifier": "Foundation",
+            "importLocations": [["bufferIdentifier": coreDirectory().appendingPathComponent("Core.swift").path]],
+        ] as [String: Any]]
+        XCTAssertEqual(
+            try unexpectedCoreDependencies(in: main, foundationOnlyMain: baseline),
+            []
+        )
+        main["details"] = ["swift": [
+            "sourceImportedDependencies": [["swift": "Foundation"], ["swift": "AppKit"]],
+        ]]
+        XCTAssertEqual(
+            try unexpectedCoreDependencies(in: main, foundationOnlyMain: baseline),
+            ["swift:AppKit"]
+        )
+        main["details"] = baseline["details"]
+        main["imports"] = [[
+            "identifier": "SwiftUI",
+            "importLocations": [["bufferIdentifier": coreDirectory().appendingPathComponent("Core.swift").path]],
+        ] as [String: Any]]
+        XCTAssertEqual(
+            try unexpectedCoreDependencies(in: main, foundationOnlyMain: baseline),
+            ["source:SwiftUI"]
+        )
+    }
+
+    private func scanMainModule(
+        files: [URL],
+        moduleName: String,
+        configurationArguments: [String]
+    ) throws -> [String: Any] {
+        let result = try runSwiftCompiler(
+            arguments: [
+                "swiftc", "-swift-version", "6", "-parse-as-library",
+                "-whole-module-optimization", "-module-name", moduleName,
+                "-scan-dependencies",
+            ] + configurationArguments + files.map(\.path) + ["-o", "-"]
+        )
+        let output = try XCTUnwrap(
+            result.status == 0 ? result.output : nil,
+            "Core dependency scan failed \(configurationArguments):\n\(result.text)"
+        )
+        let graph = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: output) as? [String: Any]
+        )
+        XCTAssertEqual(graph["mainModuleName"] as? String, moduleName)
+        let modules = try XCTUnwrap(graph["modules"] as? [Any])
+        let mainIndex = try XCTUnwrap(modules.firstIndex { item in
+            (item as? [String: Any])?["swift"] as? String == moduleName
+        })
+        return try XCTUnwrap(
+            modules.indices.contains(mainIndex + 1)
+                ? modules[mainIndex + 1] as? [String: Any] : nil
+        )
+    }
+
+    private func unexpectedCoreDependencies(
+        in main: [String: Any],
+        foundationOnlyMain: [String: Any]
+    ) throws -> Set<String> {
+        let allowedDirectDependencies = dependencyNames(
+            try XCTUnwrap(foundationOnlyMain["directDependencies"] as? [Any])
+        )
+        var unexpected = dependencyNames(
+            try XCTUnwrap(main["directDependencies"] as? [Any])
+        ).subtracting(allowedDirectDependencies)
+        let allowedSourceDependencies: Set<String> = [
+            "swift:Swift", "swift:SwiftOnoneSupport", "swift:_Concurrency",
+            "swift:_StringProcessing", "swift:Foundation", "clang:_SwiftConcurrencyShims",
+        ]
+        let details = try XCTUnwrap(main["details"] as? [String: Any])
+        let swiftDetails = try XCTUnwrap(details["swift"] as? [String: Any])
+        // These additive fields are absent in older compiler scan schemas.
+        if let imported = swiftDetails["sourceImportedDependencies"] {
+            unexpected.formUnion(
+                dependencyNames(try XCTUnwrap(imported as? [Any]))
+                    .subtracting(allowedSourceDependencies)
+            )
+        }
+        if let imports = main["imports"] {
+            let records = try XCTUnwrap(imports as? [[String: Any]])
+            for record in records {
+                let locations = record["importLocations"] as? [[String: Any]] ?? []
+                let isCoreImport = locations.contains { location in
+                    guard let path = location["bufferIdentifier"] as? String else { return false }
+                    return path.hasPrefix(coreDirectory().path + "/")
+                }
+                if isCoreImport, let name = record["identifier"] as? String, name != "Foundation" {
+                    unexpected.insert("source:\(name)")
+                }
+            }
+        }
+        return unexpected
     }
 
     private func coreSourceFiles() throws -> [URL] {
