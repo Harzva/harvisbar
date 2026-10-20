@@ -233,6 +233,12 @@ final class CodexTaskDeliveryCoordinatorTests: XCTestCase {
             text: "steer"
         )
         let steerID = try XCTUnwrap(submittedSteerID)
+        // The monitor may own delivery while submit returns the accepted ID.
+        let steerBecameRunning = await eventually {
+            fixture.coordinator.queueItems.first(where: { $0.id == steerID })?
+                .state == .running
+        }
+        XCTAssertTrue(steerBecameRunning)
         XCTAssertEqual(
             fixture.coordinator.queueItems.first(where: { $0.id == steerID })?
                 .dispatchPhase,
@@ -424,6 +430,9 @@ final class CodexTaskDeliveryCoordinatorTests: XCTestCase {
         let fixture = try makeFixture(probeValues: [false, false, false])
         defer { try? FileManager.default.removeItem(at: fixture.root) }
         await fixture.coordinator.activate(probeExecutablePath: "/bin/false")
+        let connection = await fixture.pool.connection(for: fixture.home.path)
+        // Await the fixture's process handshake before observing approval delivery.
+        _ = try await connection.connect()
 
         _ = await fixture.coordinator.submit(
             homeID: "home-a",
@@ -441,7 +450,6 @@ final class CodexTaskDeliveryCoordinatorTests: XCTestCase {
         }
         XCTAssertTrue(turnStarted)
 
-        let connection = await fixture.pool.connection(for: fixture.home.path)
         _ = try await connection.request(
             method: "test/emitApprovalPair",
             params: .object([:])
@@ -658,6 +666,11 @@ final class CodexTaskDeliveryCoordinatorTests: XCTestCase {
             text: "blocked steer"
         )
         let steerID = try XCTUnwrap(submittedSteerID)
+        let steerFailed = await eventually {
+            fixture.coordinator.queueItems.first(where: { $0.id == steerID })?
+                .state == .failed
+        }
+        XCTAssertTrue(steerFailed)
         let failedItem = try XCTUnwrap(
             fixture.coordinator.queueItems.first(where: { $0.id == steerID })
         )
