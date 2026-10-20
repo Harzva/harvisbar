@@ -48,6 +48,39 @@ struct CodexHome: Decodable, Identifiable {
     let skillCount: Int
     let quotaMode: String?
     let quotaNote: String?
+    let providerId: String?
+    let configuredModels: [CodexConfiguredModel]?
+    let connections: [CodexBillingConnection]?
+
+    init(
+        id: String, label: String, accountNote: String?, path: String, source: String,
+        model: String?, provider: String?, endpointHost: String?, hasAuth: Bool,
+        accountEmail: String?, authStatus: String?, authExpiresAt: Int64?, authNote: String?,
+        hasConfig: Bool, skillCount: Int, quotaMode: String?, quotaNote: String?,
+        providerId: String? = nil, configuredModels: [CodexConfiguredModel]? = nil,
+        connections: [CodexBillingConnection]? = nil
+    ) {
+        self.id = id
+        self.label = label
+        self.accountNote = accountNote
+        self.path = path
+        self.source = source
+        self.model = model
+        self.provider = provider
+        self.endpointHost = endpointHost
+        self.hasAuth = hasAuth
+        self.accountEmail = accountEmail
+        self.authStatus = authStatus
+        self.authExpiresAt = authExpiresAt
+        self.authNote = authNote
+        self.hasConfig = hasConfig
+        self.skillCount = skillCount
+        self.quotaMode = quotaMode
+        self.quotaNote = quotaNote
+        self.providerId = providerId
+        self.configuredModels = configuredModels
+        self.connections = connections
+    }
 
     var detailSummary: String {
         [provider, model, endpointHost, "\(skillCount) skills"]
@@ -253,6 +286,19 @@ struct CodexQuotaBucket: Decodable, Identifiable {
     let planType: String?
     let primary: CodexQuotaWindow?
     let secondary: CodexQuotaWindow?
+    let credits: CodexCreditsSnapshot?
+
+    init(
+        limitId: String, limitName: String?, planType: String?, primary: CodexQuotaWindow?,
+        secondary: CodexQuotaWindow?, credits: CodexCreditsSnapshot? = nil
+    ) {
+        self.limitId = limitId
+        self.limitName = limitName
+        self.planType = planType
+        self.primary = primary
+        self.secondary = secondary
+        self.credits = credits
+    }
 
     var id: String { limitId }
 

@@ -16,12 +16,20 @@ struct CodexAccountIdentity: Equatable {
     let path: String
     let accountKey: String?
     let quotaMode: String?
+    let providerID: String?
+    let endpointHost: String?
+    let billingIdentity: [String]
 
     init(_ home: CodexHome) {
         id = home.id
         path = home.path
         accountKey = home.accountKey
         quotaMode = home.quotaMode
+        providerID = home.providerId ?? home.provider
+        endpointHost = home.endpointHost
+        billingIdentity = (home.connections ?? []).map {
+            [$0.id, $0.providerId ?? "", $0.endpointHost ?? "", $0.accessMode, $0.billingMode].joined(separator: "\u{1f}")
+        }.sorted()
     }
 }
 
@@ -43,6 +51,9 @@ struct CodexAccountDetails: Identifiable {
     let isQuotaLoading: Bool
     let isActionRunning: Bool
     let actionFeedback: CodexAccountActionFeedback?
+    let billing: CodexHomeBilling?
+    let billingError: String?
+    let isBillingLoading: Bool
     let observedAt: Date
 
     var id: String { home.id }
@@ -51,7 +62,9 @@ struct CodexAccountDetails: Identifiable {
         home: CodexHome, workspacePath: String, threadCount: Int,
         quota: CodexHomeQuota?, quotaError: String?, quotaUpdatedAt: Date?,
         isQuotaLoading: Bool, isActionRunning: Bool,
-        actionFeedback: CodexAccountActionFeedback? = nil, observedAt: Date = Date()
+        actionFeedback: CodexAccountActionFeedback? = nil,
+        billing: CodexHomeBilling? = nil, billingError: String? = nil,
+        isBillingLoading: Bool = false, observedAt: Date = Date()
     ) {
         self.home = home
         self.workspacePath = workspacePath
@@ -63,7 +76,89 @@ struct CodexAccountDetails: Identifiable {
         self.isQuotaLoading = isQuotaLoading
         self.isActionRunning = isActionRunning
         self.actionFeedback = actionFeedback
+        let billingMatches = billing?.ok == true && billing?.homeId == home.id
+        self.billing = billingMatches ? billing : nil
+        self.billingError = billing != nil && !billingMatches ? "用量数据与此账号不匹配，请刷新。" : billingError
+        self.isBillingLoading = isBillingLoading
         self.observedAt = observedAt
+    }
+
+    var configuredModels: [CodexConfiguredModel] {
+        if let models = home.configuredModels, !models.isEmpty { return models }
+        guard let model = home.model, !model.isEmpty else { return [] }
+        return [CodexConfiguredModel(id: model, displayName: model, providerId: home.providerId ?? home.provider, source: "configured")]
+    }
+
+    private var configuredConnections: [CodexBillingConnection] {
+        if let connections = home.connections, !connections.isEmpty { return connections }
+        let usesChatGPT = !home.isCustomModelHome
+        return [CodexBillingConnection(
+            id: home.providerId ?? home.provider ?? "current", name: usesChatGPT ? "OpenAI / ChatGPT" : home.provider ?? "自定义 API",
+            providerId: home.providerId ?? home.provider, endpointHost: home.endpointHost,
+            modelIds: configuredModels.map(\.id), accessMode: usesChatGPT ? "chatgpt" : "api",
+            billingMode: home.isSubscriptionHome ? "subscription" : "unknown", planName: quota?.planLabel,
+            billingPeriod: nil, allowances: [], balances: []
+        )]
+    }
+
+    var billingConnections: [CodexAccountBillingConnection] {
+        configuredConnections.map { configuration in
+            CodexAccountBillingConnection(
+                configuration: configuration,
+                usage: billing?.connections.first(where: { $0.id == configuration.id }),
+                models: configuredModels, observedAt: observedAt, refreshFailed: billingError != nil
+            )
+        }
+    }
+
+    var canRefreshUsage: Bool {
+        home.officialQuotaBlockedReason == nil || configuredConnections.contains { $0.accessMode == "api" }
+    }
+
+    var isUsageLoading: Bool { isQuotaLoading || isBillingLoading }
+
+    var connectionSummary: String {
+        "\(configuredConnections.count) 个服务 · \(configuredModels.count) 个模型选项"
+    }
+
+    var billingNotice: String? {
+        if billingError != nil { return "用量刷新失败，保留上次读取的数据。" }
+        if isBillingLoading { return "正在读取服务用量…" }
+        return nil
+    }
+
+    var creditLines: [CodexAccountCreditLine] {
+        guard home.officialQuotaBlockedReason == nil,
+              let quota, quota.available else { return [] }
+        var seen: Set<String> = []
+        return quota.buckets.compactMap { bucket in
+            guard let credits = bucket.credits,
+                  credits.validatedBalance != nil || credits.hasCredits != nil || credits.unlimited != nil else { return nil }
+            let identity = [credits.validatedBalance ?? "?", credits.hasCredits.map(String.init) ?? "?", credits.unlimited.map(String.init) ?? "?"].joined(separator: "/")
+            guard seen.insert(identity).inserted else { return nil }
+            return CodexAccountCreditLine(
+                id: bucket.limitId, title: bucket.displayName, snapshot: credits,
+                sourceLabel: "官方账号 · \(quotaUpdatedLabel)"
+            )
+        }
+    }
+
+    var creditsNotice: String? {
+        guard !home.isCustomModelHome else { return "API 余额与套餐额度按服务分别显示。" }
+        if !creditLines.isEmpty {
+            if quotaError != nil { return "以下为缓存 Credits，刷新失败。" }
+            if quotaNeedsRefresh { return "缓存 Credits 可能已变化，可刷新确认。" }
+            return nil
+        }
+        if isQuotaLoading { return "正在读取此账号 Credits…" }
+        if requiresLogin { return "登录此账号后可读取 Credits。" }
+        if quotaError != nil { return "Credits 读取失败，请刷新重试。" }
+        return "服务暂未返回此账号的 Credits 余额。"
+    }
+
+    var creditsSummary: String? {
+        guard !home.isCustomModelHome else { return nil }
+        return creditLines.first?.valueLabel ?? "Credits 未提供"
     }
 
     var quotaLines: [CodexAccountQuotaLine] {
@@ -81,7 +176,7 @@ struct CodexAccountDetails: Identifiable {
     }
 
     var quotaNeedsRefresh: Bool {
-        guard !quotaLines.isEmpty else { return false }
+        guard !quotaLines.isEmpty || !creditLines.isEmpty else { return false }
         guard let quotaUpdatedAt else { return true }
         if observedAt.timeIntervalSince(quotaUpdatedAt) >= 300 { return true }
         return quotaLines.contains { line in
@@ -146,6 +241,7 @@ struct CodexAccountDetails: Identifiable {
     var hoverSummary: String {
         var lines = [home.accountDisplayLabel, authenticationLabel]
         if let plan = quota?.planLabel { lines[1] += " · \(plan)" }
+        lines.append(connectionSummary)
         if !quotaLines.isEmpty {
             lines += quotaLines.prefix(4).map { "\($0.title)：剩余 \($0.window.remainingPercent)%" }
             if quotaLines.count > 4 { lines.append("更多额度见账号详情") }
@@ -153,6 +249,7 @@ struct CodexAccountDetails: Identifiable {
         } else if let notice = quotaNotice {
             lines.append(String(notice.prefix(180)))
         }
+        if let creditsSummary { lines.append(creditsSummary) }
         lines.append("点击账号名查看详情、打开 CLI / Desktop；左侧勾选控制会话显示。")
         return lines.joined(separator: "\n")
     }

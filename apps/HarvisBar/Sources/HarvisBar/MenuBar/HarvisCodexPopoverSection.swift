@@ -324,6 +324,8 @@ extension HarvisPopoverView {
                 Spacer(minLength: 3)
             }
 
+            codexHomeConnectionSummary(home, details: model.codexAccountDetails(for: home))
+
             codexHomeQuotaView(home)
 
             HStack(spacing: 6) {
@@ -435,6 +437,103 @@ extension HarvisPopoverView {
         .background(theme.surfaceAlt.opacity(0.72))
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.line.opacity(0.55)))
+    }
+
+    func codexHomeConnectionSummary(_ home: CodexHome, details: CodexAccountDetails) -> some View {
+        Button {
+            presentedCodexAccountIdentity = CodexAccountIdentity(home)
+            model.prepareCodexAccountDetails(home)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Image(systemName: "square.stack.3d.up")
+                        .foregroundColor(theme.accent)
+                    Text(details.connectionSummary)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundColor(theme.muted)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .layoutPriority(1)
+                    Spacer(minLength: 3)
+                    Text("详情")
+                        .font(.caption2.bold())
+                        .foregroundColor(theme.accent)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(theme.accent)
+                }
+
+                if let credits = details.creditsSummary {
+                    HStack(spacing: 5) {
+                        Image(systemName: "creditcard")
+                            .foregroundColor(theme.accent)
+                        Text("Credits")
+                            .font(.caption2)
+                            .foregroundColor(theme.muted)
+                        Spacer(minLength: 3)
+                        Text(credits)
+                            .font(.caption2.bold().monospacedDigit())
+                            .foregroundColor(theme.accent)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(theme.surface.opacity(0.42))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(theme.line.opacity(0.5))
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("codex-home.\(home.id).details")
+        .accessibilityLabel("查看 \(home.accountDisplayLabel) 的模型、订阅和 Credits 详情")
+        .accessibilityValue("\(details.connectionSummary)\(details.creditsSummary.map { "；Credits \($0)" } ?? "")")
+        .help("查看模型、订阅额度和 Credits 详情")
+        .popover(
+            isPresented: codexDetailsPresentation(for: home),
+            attachmentAnchor: .rect(.bounds),
+            arrowEdge: .bottom
+        ) {
+            CodexAccountDetailsPopover(
+                details: model.codexAccountDetails(for: home),
+                onAction: { model.performCodexAccountDetailAction($0, home: home) },
+                onClose: { dismissCodexDetails(for: home) },
+                theme: theme
+            )
+        }
+        .onDisappear {
+            dismissCodexDetails(for: home)
+        }
+        .onChange(of: CodexAccountIdentity(home)) { _ in
+            dismissCodexDetails(for: home)
+        }
+    }
+
+    private func codexDetailsPresentation(for home: CodexHome) -> Binding<Bool> {
+        let identity = CodexAccountIdentity(home)
+        return Binding(
+            get: { presentedCodexAccountIdentity == identity },
+            set: { isPresented in
+                if isPresented {
+                    presentedCodexAccountIdentity = identity
+                    model.prepareCodexAccountDetails(home)
+                } else if presentedCodexAccountIdentity == identity {
+                    presentedCodexAccountIdentity = nil
+                }
+            }
+        )
+    }
+
+    private func dismissCodexDetails(for home: CodexHome) {
+        let identity = CodexAccountIdentity(home)
+        if presentedCodexAccountIdentity == identity {
+            presentedCodexAccountIdentity = nil
+        }
     }
 
     @ViewBuilder

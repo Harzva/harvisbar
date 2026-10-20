@@ -43,6 +43,14 @@ API subscriptions, or provider keys. Configure Codex and any chosen gateway
 separately. Custom API credential presence and service availability are separate
 facts; discovering a configuration does not verify that its key works.
 
+Account details distinguish configured model options from verified access,
+ChatGPT Credits from API balances, and API access from usage-based or monthly
+subscription billing. Supported provider usage reads are scoped to the selected
+Home and connection; discovery does not query billing services. Missing values
+stay unknown, and cached data retains its source and read time. See the
+[account models and billing contract](docs/codex-account-billing.md) for local
+metadata, explicit refresh behavior, and supported adapters.
+
 [CodexHome Manager](https://github.com/Harzva/codexhome-manager) is a separate
 project. HarvisBar currently implements its own Home discovery and launch
 integration; it does not yet depend on that project's core library.

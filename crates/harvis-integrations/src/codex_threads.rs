@@ -1,4 +1,4 @@
-use crate::codex_homes::stable_id;
+use crate::codex_homes::{bounded_decimal, codex_home_quota_mode, stable_id};
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -87,6 +87,15 @@ pub struct CodexQuotaBucket {
     pub plan_type: Option<String>,
     pub primary: Option<CodexQuotaWindow>,
     pub secondary: Option<CodexQuotaWindow>,
+    pub credits: Option<CodexQuotaCredits>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexQuotaCredits {
+    pub has_credits: Option<bool>,
+    pub unlimited: Option<bool>,
+    pub balance: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -141,6 +150,17 @@ pub fn read_codex_home_quota(home: &Path) -> Result<CodexHomeQuotaResult> {
         .with_context(|| format!("CODEX_HOME is unavailable: {}", home.display()))?;
     if !home.is_dir() {
         bail!("CODEX_HOME is not a directory")
+    }
+    if matches!(codex_home_quota_mode(&home)?.as_str(), "proxy" | "api-key") {
+        return Ok(CodexHomeQuotaResult {
+            ok: true,
+            schema_version: "harvis.codex-home-quota.v1",
+            home_id: stable_id(&home),
+            available: false,
+            plan_type: None,
+            buckets: Vec::new(),
+            error: Some("Custom/API key connections do not expose official ChatGPT quota.".into()),
+        });
     }
     let codex_binary = find_codex_binary()?;
     let mut client = AppServerClient::start_for_home(&codex_binary, Some(&home))?;
@@ -250,18 +270,40 @@ fn project_quota_bucket(snapshot: &Value, fallback_id: Option<&str>) -> Option<C
         plan_type: nonempty_json_string(object.get("planType")).map(str::to_owned),
         primary: object.get("primary").and_then(project_quota_window),
         secondary: object.get("secondary").and_then(project_quota_window),
+        credits: object.get("credits").and_then(|value| {
+            let object = value.as_object()?;
+            let credits = CodexQuotaCredits {
+                has_credits: object.get("hasCredits").and_then(Value::as_bool),
+                unlimited: object.get("unlimited").and_then(Value::as_bool),
+                balance: object
+                    .get("balance")
+                    .and_then(Value::as_str)
+                    .and_then(bounded_decimal),
+            };
+            (credits.has_credits.is_some()
+                || credits.unlimited.is_some()
+                || credits.balance.is_some())
+            .then_some(credits)
+        }),
     })
 }
 
 fn project_quota_window(value: &Value) -> Option<CodexQuotaWindow> {
     let object = value.as_object()?;
+    let used_percent = object.get("usedPercent")?.as_i64()?;
+    if !(0..=100).contains(&used_percent) {
+        return None;
+    }
     Some(CodexQuotaWindow {
-        used_percent: object
-            .get("usedPercent")
+        used_percent,
+        window_duration_mins: object
+            .get("windowDurationMins")
             .and_then(Value::as_i64)
-            .unwrap_or_default(),
-        window_duration_mins: object.get("windowDurationMins").and_then(Value::as_i64),
-        resets_at: object.get("resetsAt").and_then(Value::as_i64),
+            .filter(|value| *value >= 0),
+        resets_at: object
+            .get("resetsAt")
+            .and_then(Value::as_i64)
+            .filter(|value| *value >= 0),
     })
 }
 
@@ -646,5 +688,63 @@ mod tests {
         assert!(!serde_json::to_string(&projected)
             .unwrap()
             .contains("must-not-be-projected"));
+    }
+
+    #[test]
+    fn quota_credits_preserve_optional_flags_zero_unlimited_and_exact_signed_decimals() {
+        for source in [
+            json!({}),
+            json!({"credits": null}),
+            json!({"credits": {"balance": "secret"}}),
+        ] {
+            assert!(project_quota_bucket(&source, None)
+                .unwrap()
+                .credits
+                .is_none());
+        }
+        let zero = project_quota_bucket(
+            &json!({"credits": {"hasCredits": false, "unlimited": false, "balance": "0"}}),
+            None,
+        )
+        .unwrap()
+        .credits
+        .unwrap();
+        assert_eq!(zero.has_credits, Some(false));
+        assert_eq!(zero.unlimited, Some(false));
+        assert_eq!(zero.balance.as_deref(), Some("0"));
+        let unlimited = project_quota_bucket(&json!({"credits": {"unlimited": true}}), None)
+            .unwrap()
+            .credits
+            .unwrap();
+        assert_eq!(unlimited.unlimited, Some(true));
+        assert!(unlimited.balance.is_none());
+        let precise = project_quota_bucket(&json!({"credits": {"balance": "-12345678901234567890.00000001", "api_key": "must-not-project"}}), None).unwrap();
+        assert_eq!(
+            precise.credits.as_ref().unwrap().balance.as_deref(),
+            Some("-12345678901234567890.00000001")
+        );
+        assert!(!serde_json::to_string(&precise)
+            .unwrap()
+            .contains("must-not-project"));
+    }
+
+    #[test]
+    fn quota_windows_require_a_valid_used_percent_instead_of_inventing_zero() {
+        for value in [
+            json!({}),
+            json!({"usedPercent": null}),
+            json!({"usedPercent": "0"}),
+            json!({"usedPercent": -1}),
+            json!({"usedPercent": 101}),
+            json!({"usedPercent": 0.5}),
+        ] {
+            assert!(project_quota_window(&value).is_none());
+        }
+        assert_eq!(
+            project_quota_window(&json!({"usedPercent": 0}))
+                .unwrap()
+                .used_percent,
+            0
+        );
     }
 }

@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 use harvis_http::{serve_blocking, HttpConfig};
 use harvis_integrations::agent_gateway::{agent_step, AgentStepOptions};
 use harvis_integrations::agent_harnesses::build_agent_harness_status;
+use harvis_integrations::codex_billing::read_codex_home_billing;
 use harvis_integrations::codex_homes::{
     discover_codex_homes, launch_codex_cli, launch_codex_desktop, login_codex_home,
     resume_codex_cli,
@@ -1041,6 +1042,11 @@ enum CodexCommand {
         #[arg(long)]
         home: PathBuf,
     },
+    /// Explicitly refresh configured provider balances for one selected CODEX_HOME.
+    Billing {
+        #[arg(long)]
+        home: PathBuf,
+    },
     /// Open the Codex login flow for one selected CODEX_HOME.
     Login {
         #[arg(long)]
@@ -1955,6 +1961,12 @@ fn main() -> Result<()> {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&read_codex_home_quota(&home)?)?
+                );
+            }
+            CodexCommand::Billing { home } => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&read_codex_home_billing(&home)?)?
                 );
             }
             CodexCommand::Login { home } => {

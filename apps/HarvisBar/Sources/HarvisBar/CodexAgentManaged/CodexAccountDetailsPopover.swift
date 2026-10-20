@@ -17,7 +17,9 @@ struct CodexAccountDetailsPopover: View {
                     identityHeader
                     Divider().overlay(theme.line.opacity(0.72))
                     authenticationSummary
+                    connectionSection
                     quotaSection
+                    creditsSection
                     environmentSection
                 }
                 .padding(12)
@@ -54,7 +56,7 @@ struct CodexAccountDetailsPopover: View {
                             .foregroundColor(theme.accent)
                             .lineLimit(1)
                     } else {
-                        Text("套餐未提供")
+                        Text(details.home.isCustomModelHome ? "自定义模型" : "套餐未提供")
                             .harvisFont(.caption2)
                             .foregroundColor(theme.muted)
                             .lineLimit(1)
@@ -105,6 +107,293 @@ struct CodexAccountDetailsPopover: View {
         }
     }
 
+    private var connectionSection: some View {
+        detailPanel {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Label("接入模型与服务", systemImage: "square.stack.3d.up")
+                    .harvisFont(.caption.bold())
+
+                Spacer(minLength: 4)
+
+                Text(details.connectionSummary)
+                    .harvisFont(.caption2.monospacedDigit())
+                    .foregroundColor(theme.muted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+
+            if details.configuredModels.isEmpty {
+                compactNotice("暂未发现模型选项。", icon: "questionmark.circle", color: theme.muted)
+            } else {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("模型选项")
+                        .harvisFont(.caption2.bold())
+                        .foregroundColor(theme.muted)
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(minimum: 0), spacing: 5, alignment: .leading),
+                            GridItem(.flexible(minimum: 0), spacing: 5, alignment: .leading)
+                        ],
+                        alignment: .leading,
+                        spacing: 5
+                    ) {
+                        ForEach(details.configuredModels) { model in
+                            modelBadge(model)
+                        }
+                    }
+                }
+            }
+
+            if details.billingConnections.isEmpty {
+                compactNotice("暂未发现订阅或 API 服务。", icon: "link.badge.plus", color: theme.muted)
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(details.billingConnections.enumerated()), id: \.offset) { index, connection in
+                        billingConnectionRow(connection)
+                        if index < details.billingConnections.count - 1 {
+                            Divider()
+                                .overlay(theme.line.opacity(0.5))
+                                .padding(.vertical, 6)
+                        }
+                    }
+                }
+            }
+
+            if let notice = details.billingNotice {
+                compactNotice(notice, icon: "info.circle", color: .orange)
+            }
+
+            if details.home.isCustomModelHome, let notice = details.creditsNotice {
+                compactNotice("Credits：\(notice)", icon: "creditcard", color: theme.muted)
+            }
+        }
+    }
+
+    private func modelBadge(_ model: CodexConfiguredModel) -> some View {
+        HStack(alignment: .top, spacing: 5) {
+            Image(systemName: "sparkles")
+                .harvisFont(.system(size: 9, weight: .semibold))
+                .foregroundColor(theme.accent)
+                .frame(width: 11)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.displayName)
+                    .harvisFont(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if let provider = normalized(model.providerId) {
+                    Text(provider)
+                        .harvisFont(.system(size: 9, weight: .regular).monospaced())
+                        .foregroundColor(theme.muted)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.surfaceAlt.opacity(0.62))
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .overlay(
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(theme.line.opacity(0.42))
+        )
+        .help([model.displayName, model.providerId].compactMap { normalized($0) }.joined(separator: " · "))
+    }
+
+    private func billingConnectionRow(_ connection: CodexAccountBillingConnection) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: connection.isLive ? "checkmark.circle.fill" : "circle.dashed")
+                    .foregroundColor(connection.isLive ? theme.positive : theme.muted)
+                Text(connection.name)
+                    .harvisFont(.caption.bold())
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 4)
+                Text(connection.isLive ? "已同步" : connection.updatedLabel)
+                    .harvisFont(.caption2.monospacedDigit())
+                    .foregroundColor(connection.isLive ? theme.positive : theme.muted)
+                    .lineLimit(1)
+            }
+
+            HStack(spacing: 5) {
+                Text(connection.modeLabel)
+                    .harvisFont(.caption2.bold())
+                    .foregroundColor(theme.accent)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if let plan = normalized(connection.planLabel) {
+                    Text(plan)
+                        .harvisFont(.caption2)
+                        .foregroundColor(theme.text)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: 0)
+            }
+
+            if !connection.modelNames.isEmpty {
+                connectionDetailLine(
+                    label: "模型选项",
+                    value: connection.modelNames.joined(separator: " · ")
+                )
+            }
+
+            ForEach(connection.allowances) { allowance in
+                billingAllowanceRow(allowance)
+            }
+
+            ForEach(connection.balances) { balance in
+                billingBalanceRow(balance)
+            }
+
+            if let notice = connection.notice {
+                compactNotice(notice, icon: "info.circle", color: .orange)
+            }
+        }
+    }
+
+    private func connectionDetailLine(label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Text(label)
+                .harvisFont(.caption2)
+                .foregroundColor(theme.muted)
+                .frame(width: 54, alignment: .leading)
+            Text(value)
+                .harvisFont(.caption2)
+                .foregroundColor(theme.text)
+                .lineLimit(2)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func billingAllowanceRow(_ allowance: CodexBillingAllowance) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "gauge.with.dots.needle.33percent")
+                    .harvisFont(.system(size: 10, weight: .semibold))
+                    .foregroundColor(theme.accent)
+                    .frame(width: 13)
+                Text(allowance.label)
+                    .harvisFont(.caption2)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 4)
+                Text(allowance.summaryLabel)
+                    .harvisFont(.caption2.bold().monospacedDigit())
+                    .foregroundColor(allowanceSummaryColor(allowance))
+                    .lineLimit(1)
+            }
+            HStack(spacing: 5) {
+                Text(allowance.resetLabel)
+                Text(allowance.sourceLabel)
+            }
+            .harvisFont(.system(size: 9, weight: .regular).monospacedDigit())
+            .foregroundColor(theme.muted)
+            .padding(.leading, 19)
+        }
+    }
+
+    private func billingBalanceRow(_ balance: CodexBillingBalance) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "banknote")
+                .harvisFont(.system(size: 10, weight: .semibold))
+                .foregroundColor(theme.accent)
+                .frame(width: 13)
+            Text("余额")
+                .harvisFont(.caption2)
+                .foregroundColor(theme.muted)
+            Text(balance.summaryLabel)
+                .harvisFont(.caption2.bold().monospacedDigit())
+                .foregroundColor(theme.text)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Text(balance.sourceLabel)
+                .harvisFont(.system(size: 9, weight: .regular))
+                .foregroundColor(theme.muted)
+        }
+    }
+
+    @ViewBuilder
+    private var creditsSection: some View {
+        if !details.home.isCustomModelHome {
+            detailPanel {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Label("Credits", systemImage: "creditcard")
+                        .harvisFont(.caption.bold())
+                    Spacer(minLength: 4)
+                    if let summary = details.creditsSummary {
+                        Text(summary)
+                            .harvisFont(.caption2.bold().monospacedDigit())
+                            .foregroundColor(details.creditLines.contains(where: { $0.isDepleted }) ? .orange : theme.accent)
+                            .lineLimit(1)
+                    }
+                }
+
+                if details.creditLines.isEmpty {
+                    compactNotice("Credits 未提供。", icon: "info.circle", color: theme.muted)
+                } else {
+                    VStack(alignment: .leading, spacing: 5) {
+                        ForEach(details.creditLines) { line in
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Image(systemName: line.isDepleted ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                                    .foregroundColor(line.isDepleted ? .orange : theme.positive)
+                                Text(line.title)
+                                    .harvisFont(.caption2)
+                                    .lineLimit(1)
+                                Spacer(minLength: 4)
+                                Text(line.valueLabel)
+                                    .harvisFont(.caption2.bold().monospacedDigit())
+                                    .foregroundColor(line.isDepleted ? .orange : theme.text)
+                                    .lineLimit(1)
+                            }
+                            HStack(spacing: 5) {
+                                Text(line.sourceLabel)
+                            }
+                            .harvisFont(.system(size: 9, weight: .regular).monospacedDigit())
+                            .foregroundColor(theme.muted)
+                            .padding(.leading, 19)
+                        }
+                    }
+                }
+
+                if let notice = details.creditsNotice {
+                    compactNotice(notice, icon: "info.circle", color: theme.muted)
+                }
+            }
+        }
+    }
+
+    private func compactNotice(_ notice: String, icon: String, color: Color) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: icon)
+                .foregroundColor(color)
+            Text(notice)
+                .harvisFont(.caption2)
+                .foregroundColor(color == theme.muted ? theme.muted : theme.text)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 2)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .background(color.opacity(0.09))
+        .clipShape(RoundedRectangle(cornerRadius: 5))
+        .overlay(
+            RoundedRectangle(cornerRadius: 5)
+                .stroke(color.opacity(0.28))
+        )
+    }
+
+    private func allowanceSummaryColor(_ allowance: CodexBillingAllowance) -> Color {
+        guard let remaining = allowance.remaining, remaining.isFinite else { return theme.text }
+        if remaining <= 0 { return .orange }
+        return theme.text
+    }
+
     private var quotaSection: some View {
         detailPanel {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -121,7 +410,7 @@ struct CodexAccountDetailsPopover: View {
                 Button {
                     onAction(.refreshQuota)
                 } label: {
-                    if details.isQuotaLoading {
+                    if details.isUsageLoading {
                         ProgressView()
                             .controlSize(.mini)
                             .frame(width: 16, height: 16)
@@ -132,10 +421,10 @@ struct CodexAccountDetailsPopover: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("codex-account.\(details.home.id).refresh")
-                .accessibilityLabel("刷新额度")
-                .accessibilityValue(details.isQuotaLoading ? "正在读取" : "可刷新")
-                .help("刷新此账号额度")
-                .disabled(details.isQuotaLoading || details.home.officialQuotaBlockedReason != nil)
+                .accessibilityLabel("刷新额度和用量")
+                .accessibilityValue(details.isUsageLoading ? "正在读取" : details.canRefreshUsage ? "可刷新" : "没有可刷新的服务")
+                .help("刷新官方额度、Credits 和 API 服务用量")
+                .disabled(details.isUsageLoading || !details.canRefreshUsage)
             }
 
             if let notice = details.quotaNotice {
@@ -357,7 +646,7 @@ struct CodexAccountDetailsPopover: View {
     }
 
     private var quotaNoticeIcon: String {
-        if details.isQuotaLoading { return "arrow.triangle.2.circlepath" }
+        if details.isUsageLoading { return "arrow.triangle.2.circlepath" }
         if details.home.officialQuotaBlockedReason != nil { return "person.crop.circle.badge.exclamationmark" }
         if details.quotaError != nil { return "exclamationmark.triangle" }
         return "info.circle"

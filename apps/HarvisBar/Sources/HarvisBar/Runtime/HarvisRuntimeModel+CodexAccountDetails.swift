@@ -6,16 +6,22 @@ extension HarvisRuntimeModel {
             .filter { $0.provider == .codex }
             .map { ($0.sourceScope, $0.threadCount) })
         return Dictionary(uniqueKeysWithValues: visibleCodexHomes.map { home in
-            (home.id, CodexAccountDetails(
-                home: home, workspacePath: codexWorkspacePath(for: home),
-                threadCount: counts[home.id, default: 0],
-                quota: codexHomeQuotas[home.id], quotaError: codexHomeQuotaErrors[home.id],
-                quotaUpdatedAt: codexHomeQuotaUpdatedAt[home.id],
-                isQuotaLoading: codexHomeQuotaLoadingIDs.contains(home.id),
-                isActionRunning: codexHomeActionIDs.contains(home.id),
-                actionFeedback: codexHomeActionFeedback[home.id]
-            ))
+            (home.id, codexAccountDetails(for: home, threadCount: counts[home.id, default: 0]))
         })
+    }
+
+    func codexAccountDetails(for home: CodexHome, threadCount: Int? = nil) -> CodexAccountDetails {
+        CodexAccountDetails(
+            home: home, workspacePath: codexWorkspacePath(for: home),
+            threadCount: threadCount ?? managedChatDisplayAccounts.first(where: { $0.sourceScope == home.id })?.threadCount ?? 0,
+            quota: codexHomeQuotas[home.id], quotaError: codexHomeQuotaErrors[home.id],
+            quotaUpdatedAt: codexHomeQuotaUpdatedAt[home.id],
+            isQuotaLoading: codexHomeQuotaLoadingIDs.contains(home.id),
+            isActionRunning: codexHomeActionIDs.contains(home.id),
+            actionFeedback: codexHomeActionFeedback[home.id],
+            billing: codexHomeBilling[home.id], billingError: codexHomeBillingErrors[home.id],
+            isBillingLoading: codexHomeBillingLoadingIDs.contains(home.id)
+        )
     }
 
     func isCurrentCodexAccount(_ expected: CodexHome) -> Bool {
@@ -53,10 +59,17 @@ extension HarvisRuntimeModel {
     /// Only opening the popover requests data; hovering remains a cached read.
     /// Failed attempts are throttled too, so repeated clicks cannot hammer CLI.
     func prepareCodexAccountDetails(_ home: CodexHome, now: Date = Date()) {
-        guard isCurrentCodexAccount(home), home.officialQuotaBlockedReason == nil,
-              !codexHomeQuotaLoadingIDs.contains(home.id),
-              codexHomeQuotaAttemptedAt[home.id].map({ now.timeIntervalSince($0) >= 60 }) ?? true else { return }
-        Task { await refreshCodexHomeQuota(home) }
+        guard isCurrentCodexAccount(home) else { return }
+        if home.officialQuotaBlockedReason == nil,
+           !codexHomeQuotaLoadingIDs.contains(home.id),
+           codexHomeQuotaAttemptedAt[home.id].map({ now.timeIntervalSince($0) >= 60 }) ?? true {
+            Task { await refreshCodexHomeQuota(home) }
+        }
+        if home.connections?.contains(where: { $0.accessMode == "api" }) == true,
+           !codexHomeBillingLoadingIDs.contains(home.id),
+           codexHomeBillingAttemptedAt[home.id].map({ now.timeIntervalSince($0) >= 60 }) ?? true {
+            Task { await refreshCodexHomeBilling(home) }
+        }
     }
 
     func performCodexAccountDetailAction(_ action: CodexAccountDetailAction, home: CodexHome) {
@@ -66,7 +79,11 @@ extension HarvisRuntimeModel {
         }
         switch action {
         case .refreshQuota:
-            Task { await refreshCodexHomeQuota(home) }
+            Task {
+                async let quota: Void = refreshCodexHomeQuota(home)
+                async let billing: Void = refreshCodexHomeBilling(home)
+                _ = await (quota, billing)
+            }
         case .openCLI, .openDesktop:
             Task {
                 guard isCurrentCodexAccount(home), !codexHomeActionIDs.contains(home.id) else { return }
@@ -108,6 +125,7 @@ extension HarvisRuntimeModel {
         for homeID in allIDs where !unchanged.contains(homeID) {
             codexHomeRequestGenerations[homeID, default: 0] &+= 1
             codexHomeQuotaLoadingIDs.remove(homeID)
+            codexHomeBillingLoadingIDs.remove(homeID)
             codexHomeActionCounts.removeValue(forKey: homeID)
             codexHomeActionIDs.remove(homeID)
         }
@@ -115,6 +133,9 @@ extension HarvisRuntimeModel {
         codexHomeQuotaErrors = codexHomeQuotaErrors.filter { unchanged.contains($0.key) }
         codexHomeQuotaUpdatedAt = codexHomeQuotaUpdatedAt.filter { unchanged.contains($0.key) }
         codexHomeQuotaAttemptedAt = codexHomeQuotaAttemptedAt.filter { unchanged.contains($0.key) }
+        codexHomeBilling = codexHomeBilling.filter { unchanged.contains($0.key) }
+        codexHomeBillingErrors = codexHomeBillingErrors.filter { unchanged.contains($0.key) }
+        codexHomeBillingAttemptedAt = codexHomeBillingAttemptedAt.filter { unchanged.contains($0.key) }
         codexHomeActionFeedback = codexHomeActionFeedback.filter { unchanged.contains($0.key) }
     }
 }

@@ -97,6 +97,7 @@ struct HarvisPopoverView: View {
     @State var dshShortcutError: String?
     @State var dshShortcutLaunchingIDs: Set<String> = []
     @State var codexHomePendingRename: CodexHome?
+    @State var presentedCodexAccountIdentity: CodexAccountIdentity?
     @State var showCodexAccountAddSheet = false
     @State var selectedAgentLaunchKind: AgentLaunchKind = .cli
     @State var digitalMeNavigationNow = Date()

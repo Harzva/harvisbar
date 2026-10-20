@@ -209,6 +209,10 @@ final class HarvisRuntimeModel: ObservableObject {
     @Published var codexHomeQuotaLoadingIDs: Set<String> = []
     @Published var codexHomeQuotaUpdatedAt: [String: Date] = [:]
     var codexHomeQuotaAttemptedAt: [String: Date] = [:]
+    @Published var codexHomeBilling: [String: CodexHomeBilling] = [:]
+    @Published var codexHomeBillingErrors: [String: String] = [:]
+    @Published var codexHomeBillingLoadingIDs: Set<String> = []
+    var codexHomeBillingAttemptedAt: [String: Date] = [:]
     @Published var codexHomeActionFeedback: [String: CodexAccountActionFeedback] = [:]
     @Published var selectedCodexHomeID: String? {
         didSet {

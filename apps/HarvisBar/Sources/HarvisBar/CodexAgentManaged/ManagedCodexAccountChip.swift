@@ -22,6 +22,12 @@ struct ManagedCodexAccountChip: View {
         )
     }
 
+    private var accountSummary: String {
+        [details.connectionSummary, details.creditsSummary]
+            .compactMap { $0 }
+            .joined(separator: "；")
+    }
+
     var body: some View {
         HStack(spacing: 1) {
             Button(action: onToggle) {
@@ -61,6 +67,7 @@ struct ManagedCodexAccountChip: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("chat-manager.account.\(account.id).details")
             .accessibilityLabel("\(details.home.accountDisplayLabel) 的账号详情")
+            .accessibilityValue(accountSummary)
             .help(details.hoverSummary)
             .popover(isPresented: showsDetails, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
                 CodexAccountDetailsPopover(

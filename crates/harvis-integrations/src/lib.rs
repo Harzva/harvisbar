@@ -1,6 +1,7 @@
 pub mod agent_gateway;
 pub mod agent_harnesses;
 pub mod agent_mail;
+pub mod codex_billing;
 pub mod codex_homes;
 pub mod codex_threads;
 pub mod hub;

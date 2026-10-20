@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "harvis-cli"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -447,7 +447,7 @@ dependencies = [
 
 [[package]]
 name = "harvis-core"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -457,7 +457,7 @@ dependencies = [
 
 [[package]]
 name = "harvis-http"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -475,7 +475,7 @@ dependencies = [
 
 [[package]]
 name = "harvis-integrations"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -492,7 +492,7 @@ dependencies = [
 
 [[package]]
 name = "harvis-macos"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "anyhow",
  "harvis-core",
@@ -503,7 +503,7 @@ dependencies = [
 
 [[package]]
 name = "harvis-mcp"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "anyhow",
  "harvis-core",
@@ -516,7 +516,7 @@ dependencies = [
 
 [[package]]
 name = "harvis-runtime"
-version = "0.43.1"
+version = "0.44.0"
 dependencies = [
  "anyhow",
  "harvis-core",
