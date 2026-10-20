@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/run.schema.json",
+  "title": "H.A.R.V.I.S. Run",
+  "type": "object",
+  "required": [
+    "run_ledger_version",
+    "run_id",
+    "packet_id",
+    "state",
+    "mode",
+    "created_at",
+    "updated_at",
+    "origin",
+    "packet",
+    "approval",
+    "verification"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "run_ledger_version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[A-Za-z0-9_-]+$"
+    },
+    "packet_id": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "enum": ["planning", "handoff_requested", "acting", "waiting_approval", "blocked", "verified", "archived"]
+    },
+    "mode": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "packet": {
+      "type": "object",
+      "required": ["packet_id", "packet_path", "status"],
+      "additionalProperties": true
+    },
+    "approval": {
+      "type": "object",
+      "required": ["required", "pending", "ids"],
+      "additionalProperties": true
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

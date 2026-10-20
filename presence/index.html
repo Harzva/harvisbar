@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>H.A.R.V.I.S. Presence</title>
+    <link rel="icon" href="/studio/assets/harvis-app-icon.png" />
+    <link rel="stylesheet" href="/presence/styles.css" />
+    <link rel="stylesheet" href="/ui/tokens.css" />
+  </head>
+  <body>
+    <main class="presence-shell" data-state="idle" data-connected="false">
+      <section class="presence-card" aria-live="polite">
+        <div class="presence-stage" aria-label="H.A.R.V.I.S. Presence animated runtime state">
+          <div class="siri-ripple siri-ripple-a" aria-hidden="true"></div>
+          <div class="siri-ripple siri-ripple-b" aria-hidden="true"></div>
+          <div class="siri-ripple siri-ripple-c" aria-hidden="true"></div>
+          <div class="voice-wave" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="presence-aura" aria-hidden="true"></div>
+          <div class="scan-line" aria-hidden="true"></div>
+          <img class="cyberme-avatar" src="/studio/assets/harvis-core-male.png" alt="H.A.R.V.I.S. CyberMe avatar" />
+          <div class="presence-status-dot" aria-hidden="true"></div>
+        </div>
+        <p class="eyebrow">H.A.R.V.I.S. Presence</p>
+        <h1 id="presenceStateText">idle</h1>
+        <p id="presenceCaption">Standing by.</p>
+        <div class="state-rail" aria-label="Runtime state rail">
+          <span data-chip="idle">idle</span>
+          <span data-chip="reading">reading</span>
+          <span data-chip="thinking">thinking</span>
+          <span data-chip="acting">acting</span>
+          <span data-chip="verified">verified</span>
+          <span data-chip="blocked">blocked</span>
+        </div>
+      </section>
+      <section class="presence-controls" aria-label="Presence connection">
+        <label><span>Workspace</span><input id="presenceRootInput" autocomplete="off" spellcheck="false" placeholder="Runtime workspace" readonly /></label>
+        <label><span>Session token</span><input id="presenceTokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="Memory only" aria-label="Session bearer token, kept only in page memory" /></label>
+        <div class="buttons">
+          <button id="presenceRefreshButton" type="button">Refresh</button>
+          <a href="/panel/">Panel</a>
+          <a href="/studio/">Studio</a>
+        </div>
+      </section>
+    </main>
+    <script src="/ui/runtime.js" defer></script>
+    <script src="/presence/presence.js" defer></script>
+  </body>
+</html>

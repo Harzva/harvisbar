@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harvis.agent-room-workspace-state.schema.json",
+  "title": "H.A.R.V.I.S. GWT Workspace State",
+  "type": "object",
+  "required": [
+    "active_topic",
+    "chair_slot",
+    "active_slots",
+    "recent_router_events",
+    "open_tasks",
+    "unread_mailbox",
+    "pending_approvals",
+    "recent_decisions",
+    "memory_candidates_summary"
+  ],
+  "properties": {
+    "agent_room_version": { "type": "string" },
+    "gwt_workbench_version": { "type": "string" },
+    "workspace": { "type": "object" },
+    "active_topic": { "type": ["object", "null"] },
+    "chair_slot": { "type": ["object", "null"] },
+    "active_slots": { "type": "array" },
+    "recent_router_events": { "type": "array" },
+    "open_tasks": { "type": "array" },
+    "unread_mailbox": { "type": "array" },
+    "pending_approvals": { "type": "array" },
+    "waiting_approval_queue": { "type": "array" },
+    "recent_handoffs": { "type": "array" },
+    "recent_decisions": { "type": "array" },
+    "memory_candidates_summary": { "type": "object" },
+    "rules": {
+      "type": "object",
+      "properties": {
+        "router_executes_harnesses": { "const": false },
+        "slots_coordinate_through_mailbox_and_tasks": { "const": true },
+        "memory_adoption_requires_review": { "const": true },
+        "shell_or_file_mutation_requires_approval_or_handoff": { "const": true }
+      }
+    }
+  },
+  "additionalProperties": true
+}

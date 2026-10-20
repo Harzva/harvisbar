@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/event.schema.json",
+  "title": "H.A.R.V.I.S. Event",
+  "type": "object",
+  "required": ["type", "at", "status"],
+  "additionalProperties": true,
+  "properties": {
+    "type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "warning", "error", "blocked", "prepared", "unknown"]
+    },
+    "packets": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errors": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "workspace_root": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

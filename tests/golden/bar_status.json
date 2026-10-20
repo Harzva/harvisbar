@@ -1,0 +1,182 @@
+{
+  "agentHarnesses": {
+    "generatedAt": "2026-06-24T20:04:18+00:00",
+    "includesLocalAbsolutePaths": false,
+    "includesModelCalls": false,
+    "includesSecrets": false,
+    "items": [
+      {
+        "cliCommand": "codex",
+        "cliPresent": true,
+        "id": "cxspark",
+        "label": "CX Spark",
+        "latestRun": {
+          "codexReviewed": false,
+          "exitCode": 0,
+          "failureKind": "none",
+          "finishedAt": "2026-06-24T19:25:51Z",
+          "model": "gpt-5.3-codex-spark",
+          "stage": "codex",
+          "tool": "cxspark"
+        },
+        "model": "gpt-5.3-codex-spark",
+        "nativeWrapperKind": "shell",
+        "nativeWrapperPresent": true,
+        "pendingReviews": 41,
+        "reviewMarkerPresent": true,
+        "reviewedRuns": 0,
+        "runtime": "codex-cli",
+        "skillPresent": true,
+        "status": "needs_review",
+        "summary": "41 pending review record(s) need Codex audit.",
+        "test": {
+          "exitCode": null,
+          "kind": "model-smoke",
+          "status": "not-run",
+          "summary": "Model smoke test has not been run in this response."
+        },
+        "testTarget": true,
+        "wrapperPresent": true
+      }
+    ],
+    "safeForHarvisBar": true,
+    "schemaVersion": "harvis.agent-harnesses.v0",
+    "status": "needs_review",
+    "summary": "1 harness run(s) are pending Codex review.",
+    "testPolicy": "status-only"
+  },
+  "generatedAt": "2026-06-24T20:04:17+00:00",
+  "knowledge": {
+    "activeSources": [
+      "harzva-local-knowledge-hub",
+      "llmwiki.local_project"
+    ],
+    "allowlistedSources": 1,
+    "hub": "available",
+    "includesLocalAbsolutePaths": false,
+    "lastLookupAt": "2026-06-24T18:30:01Z",
+    "policy": "harzvahub-indexed-redacted-read-only",
+    "redacted": true,
+    "wiki": "unavailable"
+  },
+  "runtime": {
+    "autonomyLevel": 1,
+    "mode": "read-only",
+    "name": "H.A.R.V.I.S.",
+    "sourceRuntimeVersion": "v0.3-alpha",
+    "state": "verified",
+    "summary": "Runtime synchronized with 1 packet(s).",
+    "version": "v0.32-alpha"
+  },
+  "safeForHarvisBar": true,
+  "ports": {
+    "counts": {
+      "important": 3,
+      "importantAutostartReady": 3,
+      "importantRunning": 3,
+      "known": 10,
+      "listeners": 3
+    },
+    "generatedAt": "2026-06-24T20:04:17+00:00",
+    "items": [
+      {
+        "autostart": {
+          "label": "local.harzva.harvis.http",
+          "loaded": true,
+          "plistPresent": true,
+          "running": true
+        },
+        "function": "H.A.R.V.I.S. Studio, Presence, Bar API, and runtime control",
+        "host": "127.0.0.1",
+        "id": "harvis-http",
+        "important": true,
+        "known": true,
+        "label": "H.A.R.V.I.S. Runtime API",
+        "listening": true,
+        "pid": 123,
+        "pids": [123],
+        "port": 8765,
+        "process": "harvis",
+        "safeForHarvisBar": true,
+        "uptime": "01:23:45",
+        "url": "http://127.0.0.1:8765/studio/"
+      }
+    ],
+    "management": {
+      "autostartPolicy": "known-launchagent-only",
+      "canManageUnknownPorts": false,
+      "harvisServiceManager": "scripts/harvis service-manager"
+    },
+    "safeForHarvisBar": true,
+    "safety": {
+      "includesLocalAbsolutePaths": false,
+      "includesSecrets": false,
+      "networkExposure": "localhost-observed",
+      "redacted": true
+    },
+    "schemaVersion": "harvis.ports-status.v0",
+    "status": "ready",
+    "summary": "3 listener(s), 3/3 important running, 3/3 important autostart-ready."
+  },
+  "taskProgress": {
+    "activeCount": 0,
+    "current": null,
+    "generatedAt": "2026-06-24T20:04:18+00:00",
+    "items": [],
+    "safeForHarvisBar": true,
+    "safety": {
+      "includesLocalAbsolutePaths": false,
+      "includesSecrets": false,
+      "redacted": true
+    },
+    "schemaVersion": "harvis.task-progress.v0",
+    "status": "skipped",
+    "summary": "Task progress is provided by the Rust runtime."
+  },
+  "safety": {
+    "includesCredentialPaths": false,
+    "includesLocalAbsolutePaths": false,
+    "includesRawMemory": false,
+    "includesSecrets": false,
+    "networkExposure": "localhost-only",
+    "redacted": true
+  },
+  "schemaVersion": "harvis.bar-status.v0",
+  "serviceHealth": {
+    "http": "not-probed",
+    "mcp": "available",
+    "tickRunner": "idle"
+  },
+  "work": {
+    "activeRun": {
+      "mode": "planner",
+      "packetId": "281b3a2d28a0",
+      "runId": "run_281b3a2d28a0",
+      "state": "planning",
+      "updatedAt": "2026-06-24T20:04:17+00:00"
+    },
+    "blocked": 0,
+    "lastEvent": {
+      "at": "2026-06-24T20:04:17+00:00",
+      "status": "ok",
+      "type": "harvis.runtime.tick"
+    },
+    "lastTickAt": "2026-06-24T20:04:17+00:00",
+    "packetStatusCounts": {
+      "new": 1
+    },
+    "packets": 1,
+    "pendingApprovals": 0,
+    "runs": 1,
+    "runtimeErrors": 0,
+    "runtimeWarnings": 0
+  },
+  "workspace": {
+    "allowlistCount": 1,
+    "configured": true,
+    "label": "workspace",
+    "rootDisplay": "workspace",
+    "stateStore": "workspace",
+    "statusPresent": true
+  }
+}

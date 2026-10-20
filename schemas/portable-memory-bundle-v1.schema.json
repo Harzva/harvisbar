@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/portable-memory-bundle-v1.schema.json",
+  "title": "HARVIS Portable Memory Bundle V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["bundle_version", "exported_at", "source_provider", "record_count", "records", "sha256"],
+  "properties": {
+    "bundle_version": {"const": 1},
+    "exported_at": {"type": "string", "format": "date-time"},
+    "source_provider": {"type": "string", "minLength": 1},
+    "record_count": {"type": "integer", "minimum": 0},
+    "records": {
+      "type": "array",
+      "items": {"$ref": "memory-provider-v1.schema.json"}
+    },
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

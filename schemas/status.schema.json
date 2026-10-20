@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/status.schema.json",
+  "title": "H.A.R.V.I.S. Runtime Status",
+  "type": "object",
+  "required": ["agent", "runtime_version", "autonomy_level", "mode", "workspace_root", "last_tick_at"],
+  "additionalProperties": true,
+  "properties": {
+    "agent": {
+      "type": "string",
+      "const": "H.A.R.V.I.S."
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "autonomy_level": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "mode": {
+      "type": "string"
+    },
+    "workspace_root": {
+      "type": "string"
+    },
+    "last_tick_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tick_interval_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "allowlist": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "scanned_inboxes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "packets_written": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "packet_status_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "agent": {
+          "type": ["string", "null"]
+        },
+        "policy": {
+          "type": ["string", "null"]
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contexts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+created or verified: <tmp>/workspace/.harvis
+created or verified: <tmp>/workspace/.harvis/outbox
+created or verified: <tmp>/workspace/.harvis/archive
+created or verified: <tmp>/workspace/.harvis/reports
+created or verified: <tmp>/workspace/.harvis/memory/snapshots
+created or verified: <tmp>/workspace/.harvis/memory/signals
+created or verified: <tmp>/workspace/.harvis/workbench
+created or verified: <tmp>/workspace/.harvis/runs
+created or verified: <tmp>/workspace/.harvis/approvals
+created or verified: <tmp>/workspace/.harvis/logs
+created or verified: <tmp>/workspace/.harvis/handoffs
+created or verified: <tmp>/workspace/.harvis/agent-room
+created or verified: <tmp>/workspace/.harvis/persona
+wrote: <tmp>/workspace/.harvis/inbox.md
+wrote: <tmp>/workspace/.harvis/harvis.toml
+wrote: <tmp>/workspace/.harvis/knowledge_graph.toml

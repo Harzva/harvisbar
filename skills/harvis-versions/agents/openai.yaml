@@ -1,0 +1,4 @@
+interface:
+  display_name: "Harvis 版本管理"
+  short_description: "查询本机 Harvis、DSH、插件和仓库版本，核对来源并准备变更预览"
+  default_prompt: "使用 $harvis-versions 核对本机版本和地址，并为需要的版本变更生成预览。"

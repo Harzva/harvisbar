@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/result.schema.json",
+  "title": "H.A.R.V.I.S. Result",
+  "type": "object",
+  "required": ["ok"],
+  "additionalProperties": true,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "endpoint": {
+      "type": "string"
+    },
+    "tool": {
+      "type": "string"
+    },
+    "data": true,
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "additionalProperties": true,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "ok": {
+          "const": true
+        }
+      },
+      "required": ["data"]
+    },
+    {
+      "properties": {
+        "ok": {
+          "const": false
+        }
+      },
+      "required": ["error"]
+    }
+  ]
+}

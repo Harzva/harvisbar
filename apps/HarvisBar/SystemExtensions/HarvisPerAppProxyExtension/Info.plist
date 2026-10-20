@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Harvis Per-App Proxy</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.harzva.harvisbar.per-app-proxy</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundlePackageType</key>
+    <string>SYSX</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.42.0</string>
+    <key>CFBundleVersion</key>
+    <string>0.42.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>15.0</string>
+    <key>NetworkExtension</key>
+    <dict>
+        <key>NEMachServiceName</key>
+        <string>$(TeamIdentifierPrefix)com.harzva.harvisbar.per-app-proxy</string>
+        <key>NEProviderClasses</key>
+        <dict>
+            <key>com.apple.networkextension.app-proxy</key>
+            <string>$(PRODUCT_MODULE_NAME).TransparentProxyProvider</string>
+        </dict>
+    </dict>
+</dict>
+</plist>

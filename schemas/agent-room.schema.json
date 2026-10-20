@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/agent-room.schema.json",
+  "title": "H.A.R.V.I.S. Agent Room Event",
+  "type": "object",
+  "required": [
+    "agent_room_version",
+    "protocol",
+    "event_id",
+    "topic_id",
+    "agent_id",
+    "role",
+    "event_kind",
+    "event_type",
+    "created_at"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "agent_room_version": {
+      "type": "string"
+    },
+    "protocol": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "const": "harvis.agent_room.v1"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^evt_[A-Za-z0-9T_-]+$"
+    },
+    "topic_id": {
+      "type": "string",
+      "pattern": "^topic_[A-Za-z0-9T_-]+$"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "event_kind": {
+      "type": "string",
+      "enum": [
+        "agent_message",
+        "tool_call_summary",
+        "claim",
+        "question",
+        "counterpoint",
+        "hypothesis",
+        "verification_target",
+        "decision_record",
+        "handoff_note",
+        "review_comment",
+        "status_change",
+        "final_report"
+      ]
+    },
+    "event_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": ["string", "null"]
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "source_age": {
+      "type": ["string", "null"]
+    },
+    "sensitivity": {
+      "type": "string"
+    },
+    "content": {
+      "type": "string"
+    },
+    "content_text": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

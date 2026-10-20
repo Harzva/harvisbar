@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/ui-contract.schema.json",
+  "title": "H.A.R.V.I.S. UI Contract v0.45",
+  "type": "object",
+  "required": [
+    "ui_contract_version",
+    "mode",
+    "envelope",
+    "endpoints",
+    "safety"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "ui_contract_version": {
+      "type": "string",
+      "const": "v0.45-ui-contract"
+    },
+    "mode": {
+      "type": "string",
+      "const": "additive"
+    },
+    "envelope": {
+      "type": "object",
+      "required": ["required"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["ok", "endpoint", "data", "warnings", "error"]
+          }
+        }
+      }
+    },
+    "endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["method", "endpoint", "used_by", "required_data_fields"],
+        "additionalProperties": true,
+        "properties": {
+          "method": {
+            "type": "string",
+            "const": "GET"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "used_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_data_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "autonomy_level",
+        "token_value_returned",
+        "allows_additive_fields",
+        "allows_breaking_field_removal"
+      ],
+      "properties": {
+        "autonomy_level": {
+          "type": "integer",
+          "const": 1
+        },
+        "token_value_returned": {
+          "type": "boolean",
+          "const": false
+        },
+        "allows_additive_fields": {
+          "type": "boolean",
+          "const": true
+        },
+        "allows_breaking_field_removal": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    }
+  }
+}

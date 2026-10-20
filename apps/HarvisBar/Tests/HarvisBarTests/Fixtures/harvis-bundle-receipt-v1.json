@@ -1,0 +1,61 @@
+{
+  "app": {
+    "bundleIdentifier": "local.harzva.harvisbar",
+    "executable": "HarvisBar",
+    "variant": "bar",
+    "version": "0.33.0"
+  },
+  "appRuntimeAllowlist": {
+    "relativePath": "packaging/app-runtime-allowlist-v1.txt",
+    "sha256": "747c5abe3c4b2737bb4bc4c54a5af5ef87569ab8735df15c3aaddff65df4c050"
+  },
+  "artifacts": {
+    "appUnsignedSha256": "e25be999e9b121bc2f50a426c9d60509e2cd03562aeb7b6aad3fe47faa0a31ce",
+    "records": [
+      {
+        "mode": "0755",
+        "relativePath": "bin/harvis",
+        "role": "harvis-runtime",
+        "sha256": "5683e9123b4237a13d32a44b1cac71ac379c1fb30703e93921a7ed74f3ecac99",
+        "sizeBytes": 18
+      },
+      {
+        "mode": "0755",
+        "relativePath": "artifacts/HarvisPerAppProxyExtension",
+        "role": "harvis-system-extension",
+        "sha256": "9afd2910ff2a64488c0177d36c1d41e94bd42df8904093a79cb297d1136f38d1",
+        "sizeBytes": 20
+      },
+      {
+        "mode": "0755",
+        "relativePath": "artifacts/HarvisBar",
+        "role": "harvisbar-main",
+        "sha256": "e25be999e9b121bc2f50a426c9d60509e2cd03562aeb7b6aad3fe47faa0a31ce",
+        "sizeBytes": 15
+      }
+    ],
+    "runtimeSha256": "5683e9123b4237a13d32a44b1cac71ac379c1fb30703e93921a7ed74f3ecac99",
+    "systemExtensionUnsignedSha256": "9afd2910ff2a64488c0177d36c1d41e94bd42df8904093a79cb297d1136f38d1"
+  },
+  "payload": {
+    "digestAlgorithm": "sha256(path\\0mode\\0size\\0sha256\\0\\n)",
+    "digestScope": "all files under HarvisPlugin",
+    "fileCount": 4,
+    "sha256": "d66b383e4c93af10b7932c6e6ec188d86627a493b6073a26e82c912d791cf1b4"
+  },
+  "pluginRootMarker": "HarvisPlugin",
+  "provenance": {
+    "cacheKey": "personal/harvis/0.33.0+codex.p2-6c09b76de0b2e702a701157d6d378cf57ddf4abb69ee109e1e14fcf15e607900",
+    "sha256": "3144eb296c04cf274359e3b389d37d3f867aaf9b9243e8b9f07611ac0d6ebe42",
+    "sourceCommit": "485733a0550fb136ef3f0d0630d262709c6f202f",
+    "sourceTree": "062a9dfded3b013d438d1124132baa2bb9717a75",
+    "stagedPayloadSha256": "e6732b5bc21eeb8fe339e418979cb1d4a9616a0ccae9e6f3fd8fa92b96fcdb57"
+  },
+  "schemaVersion": "harvis.app-bundle-receipt.v1",
+  "systemExtension": {
+    "bundleIdentifier": "com.harzva.harvisbar.per-app-proxy",
+    "bundleName": "HarvisPerAppProxyExtension.systemextension",
+    "executable": "HarvisPerAppProxyExtension",
+    "version": "0.33.0"
+  }
+}

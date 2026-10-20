@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/agent-roster.schema.json",
+  "title": "H.A.R.V.I.S. Agent Roster",
+  "type": "object",
+  "required": ["version", "sync_policy", "agents"],
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "sync_policy": {
+      "type": "object",
+      "required": [
+        "source",
+        "mode",
+        "require_one_feishu_bot_per_roundtable_agent",
+        "allow_unmapped_feishu_bots"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "const": "harvis"
+        },
+        "mode": {
+          "enum": ["strict", "warn"]
+        },
+        "require_one_feishu_bot_per_roundtable_agent": {
+          "type": "boolean"
+        },
+        "allow_unmapped_feishu_bots": {
+          "type": "boolean"
+        }
+      }
+    },
+    "transports": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "agents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "display_name",
+          "role",
+          "enabled",
+          "roundtable",
+          "capabilities",
+          "safety",
+          "context_policy",
+          "backend",
+          "transport",
+          "sync_policy"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "pattern": "^agent:[a-z0-9][a-z0-9_-]*$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "roundtable": {
+            "type": "boolean"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "safety": {
+            "enum": ["review-gated", "record-only", "approval-required"]
+          },
+          "context_policy": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "harvis_knowledge": {
+                "$ref": "#/$defs/contextAccess"
+              },
+              "harvis_webview": {
+                "$ref": "#/$defs/contextAccess"
+              }
+            }
+          },
+          "backend": {
+            "type": "object",
+            "required": ["kind", "model_or_harness"],
+            "additionalProperties": true,
+            "properties": {
+              "kind": {
+                "enum": ["provider", "codex", "harness", "manual"]
+              },
+              "model_or_harness": {
+                "type": "string",
+                "minLength": 1
+              },
+              "model": {
+                "type": "string"
+              },
+              "model_alias": {
+                "type": "string"
+              },
+              "harness": {
+                "type": "string"
+              },
+              "harness_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+              },
+              "model_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+              },
+              "fallback_harness_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+                }
+              },
+              "preset_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+              },
+              "fallback_preset_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+                }
+              },
+              "fallback_model_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+                }
+              }
+            }
+          },
+          "transport": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "feishu": {
+                "type": "object",
+                "required": ["enabled", "profile", "bot_name", "status"],
+                "additionalProperties": true,
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "profile": {
+                    "type": "string"
+                  },
+                  "bot_name": {
+                    "type": "string"
+                  },
+                  "app_id": {
+                    "type": "string"
+                  },
+                  "open_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": ["active", "pending", "disabled"]
+                  }
+                }
+              }
+            }
+          },
+          "sync_policy": {
+            "type": "object",
+            "required": ["required_transport", "review_gated"],
+            "additionalProperties": true,
+            "properties": {
+              "required_transport": {
+                "type": "boolean"
+              },
+              "review_gated": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "contextAccess": {
+      "type": "object",
+      "required": ["enabled", "mode"],
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "const": "read-only"
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

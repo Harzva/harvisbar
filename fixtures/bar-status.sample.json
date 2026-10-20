@@ -1,0 +1,271 @@
+{
+  "generatedAt": "2026-06-24T00:00:00+00:00",
+  "runtime": {
+    "autonomyLevel": 1,
+    "mode": "read-only",
+    "name": "H.A.R.V.I.S.",
+    "sourceRuntimeVersion": "v0.3-alpha",
+    "state": "verified",
+    "summary": "Runtime synchronized with 0 packet(s).",
+    "version": "v0.14-alpha"
+  },
+  "safeForHarvisBar": true,
+  "taskProgress": {
+    "activeCount": 0,
+    "current": null,
+    "generatedAt": "2026-06-24T00:00:00+00:00",
+    "items": [],
+    "safeForHarvisBar": true,
+    "safety": {
+      "includesLocalAbsolutePaths": false,
+      "includesSecrets": false,
+      "redacted": true
+    },
+    "schemaVersion": "harvis.task-progress.v0",
+    "status": "idle",
+    "summary": "No task progress items."
+  },
+  "safety": {
+    "includesCredentialPaths": false,
+    "includesLocalAbsolutePaths": false,
+    "includesRawMemory": false,
+    "includesSecrets": false,
+    "networkExposure": "localhost-only",
+    "redacted": true
+  },
+  "schemaVersion": "harvis.bar-status.v0",
+  "knowledge": {
+    "activeSources": [
+      "harzva-local-knowledge-hub",
+      "llmwiki.local_project"
+    ],
+    "allowlistedSources": 1,
+    "hub": "available",
+    "includesLocalAbsolutePaths": false,
+    "lastLookupAt": "2026-06-24T00:00:00+00:00",
+    "policy": "harzvahub-indexed-redacted-read-only",
+    "redacted": true,
+    "wiki": "available"
+  },
+  "agentMail": {
+    "account": {
+      "email": "demo@example.test",
+      "isPrimary": true,
+      "name": "Demo Agent"
+    },
+    "available": true,
+    "cliPresent": true,
+    "generatedAt": "2026-06-24T00:00:00+00:00",
+    "includesRawBody": false,
+    "includesSecrets": false,
+    "loggedIn": true,
+    "safeForHarvisBar": true,
+    "status": "ready",
+    "summary": "Agent Mail is authorized and inbox read probe is available.",
+    "tokenStatus": "valid",
+    "unreadPreviewCount": 1,
+    "unreadProbe": "ok"
+  },
+  "agentHarnesses": {
+    "generatedAt": "2026-06-24T00:00:00+00:00",
+    "includesLocalAbsolutePaths": false,
+    "includesModelCalls": false,
+    "includesSecrets": false,
+    "items": [
+      {
+        "cliCommand": "codex",
+        "cliPresent": true,
+        "id": "cxspark",
+        "label": "CX Spark",
+        "latestRun": null,
+        "model": "gpt-5.3-codex-spark",
+        "nativeWrapperKind": "shell",
+        "nativeWrapperPresent": true,
+        "pendingReviews": 0,
+        "reviewMarkerPresent": true,
+        "reviewedRuns": 0,
+        "runtime": "codex-cli",
+        "skillPresent": true,
+        "status": "ready",
+        "summary": "Preflight prerequisites are present.",
+        "testTarget": true,
+        "test": {
+          "exitCode": null,
+          "kind": "model-smoke",
+          "status": "not-run",
+          "summary": "Model smoke test has not been run in this response."
+        },
+        "wrapperPresent": true
+      },
+      {
+        "cliCommand": "kimi",
+        "cliPresent": true,
+        "id": "cckimi",
+        "label": "CC Kimi",
+        "latestRun": null,
+        "model": "kimi-code/kimi-for-coding",
+        "nativeWrapperKind": "shell",
+        "nativeWrapperPresent": true,
+        "pendingReviews": 0,
+        "reviewMarkerPresent": true,
+        "reviewedRuns": 0,
+        "runtime": "kimi-code",
+        "skillPresent": true,
+        "status": "ready",
+        "summary": "Preflight prerequisites are present.",
+        "testTarget": true,
+        "test": {
+          "exitCode": null,
+          "kind": "model-smoke",
+          "status": "not-run",
+          "summary": "Model smoke test has not been run in this response."
+        },
+        "wrapperPresent": true
+      },
+      {
+        "cliCommand": "mimocode",
+        "cliPresent": true,
+        "id": "mimocode",
+        "label": "MiMoCode",
+        "latestRun": null,
+        "model": "mimo-v2.5-pro-ultraspeed",
+        "nativeWrapperKind": "shell",
+        "nativeWrapperPresent": true,
+        "pendingReviews": 0,
+        "reviewMarkerPresent": true,
+        "reviewedRuns": 0,
+        "runtime": "mimocode",
+        "skillPresent": true,
+        "status": "ready",
+        "summary": "Preflight prerequisites are present.",
+        "testTarget": true,
+        "test": {
+          "exitCode": null,
+          "kind": "model-smoke",
+          "status": "not-run",
+          "summary": "Model smoke test has not been run in this response."
+        },
+        "wrapperPresent": true
+      }
+    ],
+    "safeForHarvisBar": true,
+    "schemaVersion": "harvis.agent-harnesses.v0",
+    "status": "ready",
+    "summary": "3 harness(es) detected and ready.",
+    "testPolicy": "status-only"
+  },
+  "ports": {
+    "counts": {
+      "important": 3,
+      "importantAutostartReady": 3,
+      "importantRunning": 3,
+      "known": 10,
+      "listeners": 3
+    },
+    "generatedAt": "2026-06-24T00:00:00+00:00",
+    "items": [
+      {
+        "autostart": {
+          "label": "local.harzva.harvis.http",
+          "loaded": true,
+          "plistPresent": true,
+          "running": true
+        },
+        "function": "H.A.R.V.I.S. Studio, Presence, Bar API, and runtime control",
+        "host": "127.0.0.1",
+        "id": "harvis-http",
+        "important": true,
+        "known": true,
+        "label": "H.A.R.V.I.S. Runtime API",
+        "listening": true,
+        "pid": 123,
+        "pids": [123],
+        "port": 8765,
+        "process": "harvis",
+        "safeForHarvisBar": true,
+        "uptime": "01:23:45",
+        "url": "http://127.0.0.1:8765/studio/"
+      },
+      {
+        "autostart": {
+          "label": "com.harzva.local-knowledge-hub",
+          "loaded": true,
+          "plistPresent": true,
+          "running": true
+        },
+        "function": "H.A.R.V.I.S. local knowledge dashboard and repo index",
+        "host": "127.0.0.1",
+        "id": "local-knowledge-hub",
+        "important": true,
+        "known": true,
+        "label": "H.A.R.V.I.S. Knowledge Base",
+        "listening": true,
+        "pid": 124,
+        "pids": [124],
+        "port": 6666,
+        "process": "Python",
+        "safeForHarvisBar": true,
+        "uptime": "01:23:45",
+        "url": "http://127.0.0.1:6666/"
+      },
+      {
+        "autostart": {
+          "label": "com.harzva.digital-me.project-console",
+          "loaded": true,
+          "plistPresent": true,
+          "running": true
+        },
+        "function": "H.A.R.V.I.S. project console and WebView gateway",
+        "host": "127.0.0.1",
+        "id": "digital-me-project-console",
+        "important": true,
+        "known": true,
+        "label": "H.A.R.V.I.S. Console",
+        "listening": true,
+        "pid": 125,
+        "pids": [125],
+        "port": 7861,
+        "process": "Python",
+        "safeForHarvisBar": true,
+        "uptime": "01:23:45",
+        "url": "http://127.0.0.1:7861/"
+      }
+    ],
+    "management": {
+      "autostartPolicy": "known-launchagent-only",
+      "canManageUnknownPorts": false,
+      "harvisServiceManager": "scripts/harvis service-manager"
+    },
+    "safeForHarvisBar": true,
+    "safety": {
+      "includesLocalAbsolutePaths": false,
+      "includesSecrets": false,
+      "networkExposure": "localhost-observed",
+      "redacted": true
+    },
+    "schemaVersion": "harvis.ports-status.v0",
+    "status": "ready",
+    "summary": "3 listener(s), 3/3 important running, 3/3 important autostart-ready."
+  },
+  "serviceHealth": {
+    "http": "running",
+    "mcp": "available",
+    "tickRunner": "idle"
+  },
+  "work": {
+    "blocked": 0,
+    "lastEvent": null,
+    "lastTickAt": "2026-06-24T00:00:00+00:00",
+    "packetStatusCounts": {},
+    "packets": 0,
+    "pendingApprovals": 0,
+    "runtimeErrors": 0
+  },
+  "workspace": {
+    "allowlistCount": 1,
+    "configured": true,
+    "label": "workspace",
+    "rootDisplay": "workspace",
+    "statusPresent": true
+  }
+}

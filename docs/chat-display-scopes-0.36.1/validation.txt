@@ -1,0 +1,16 @@
+Base: 0.36.1 / 7d5f9ee
+Branch: codex/harvisbar-0.36.1-display-scopes-20260905
+
+SwiftPM debug build: PASS
+Final full Swift test: PASS — 521 tests, 0 failures
+After the final handoff-origin fix: rebuilt, 65 targeted tests, 0 failures
+Synthetic SwiftUI preview: rendered and visually inspected
+git diff --check: PASS
+
+The first full run had one unrelated ProcessTransportTests temporary-directory
+cleanup failure. Its isolated retry and the final full run both passed.
+
+0.36.2 follow-up: user authorized local installation with rollback backup.
+Full Swift tests after responsiveness changes: PASS — 524 tests, 0 failures.
+200-card status pass: 9535 ms before, 91 ms after (400 ms during concurrent builds).
+Local source commit and provenance packaging required; no remote publication.

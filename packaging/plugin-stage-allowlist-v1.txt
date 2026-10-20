@@ -1,0 +1,29 @@
+# Harvis plugin release payload allowlist v1.
+#
+# Entries are exact repository-relative files or directory prefixes ending in
+# "/". The release producer reads these entries from the committed HEAD tree;
+# it never copies uncommitted worktree files.
+.codex-plugin/plugin.json
+.mcp.json
+Cargo.toml
+Cargo.lock
+crates/
+plugins/dsh-harvis-bridge/package.json
+plugins/dsh-harvis-bridge/README.md
+plugins/dsh-harvis-bridge/src/
+apps/HarvisBar/Package.swift
+apps/HarvisBar/Sources/
+apps/HarvisBar/Resources/
+apps/HarvisBar/SystemExtensions/
+packaging/
+skills/
+schemas/
+mcp/
+scripts/
+fixtures/
+panel/
+presence/
+studio/
+ui/
+references/
+tests/golden/

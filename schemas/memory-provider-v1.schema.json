@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/memory-provider-v1.schema.json",
+  "title": "HARVIS Portable Memory Record V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "memory_id",
+    "schema_version",
+    "kind",
+    "scope",
+    "subject",
+    "summary",
+    "provenance",
+    "sensitivity",
+    "status",
+    "confidence",
+    "valid_from",
+    "valid_until",
+    "provider_refs"
+  ],
+  "properties": {
+    "memory_id": {"type": "string", "pattern": "^mem_[A-Za-z0-9_-]+$"},
+    "schema_version": {"const": 1},
+    "kind": {
+      "type": "string",
+      "enum": ["fact", "preference", "decision", "commitment", "experience", "procedure"]
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["user", "project", "session", "agent", "shared"]
+    },
+    "subject": {"type": "string", "pattern": "^[A-Za-z0-9_-]+:.+$"},
+    "summary": {"type": "string", "minLength": 1},
+    "provenance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_type", "source_id"],
+        "properties": {
+          "source_type": {"type": "string", "minLength": 1},
+          "source_id": {"type": "string", "minLength": 1},
+          "repo_key": {"type": ["string", "null"]},
+          "commit_sha": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "sensitivity": {
+      "type": "string",
+      "enum": ["private", "shared", "public_safe"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["candidate", "accepted", "rejected", "superseded", "expired"]
+    },
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "valid_from": {"type": "string", "format": "date-time"},
+    "valid_until": {"type": ["string", "null"], "format": "date-time"},
+    "provider_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "external_id"],
+        "properties": {
+          "provider": {"type": "string", "minLength": 1},
+          "external_id": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/persona-card.schema.json",
+  "title": "H.A.R.V.I.S. Persona Card",
+  "type": "object",
+  "required": [
+    "persona_id",
+    "display_name",
+    "status",
+    "tone",
+    "decision_style",
+    "behavior_rules",
+    "new_traits_require_human_review"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "persona_id": {
+      "type": "string",
+      "pattern": "^persona_[A-Za-z0-9_-]+$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_template": {
+      "type": "string"
+    },
+    "visual_asset_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "draft", "archived", "disabled"]
+    },
+    "tone": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 10
+      }
+    },
+    "decision_style": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "behavior_rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "new_traits_require_human_review": {
+      "type": "boolean",
+      "const": true
+    }
+  }
+}

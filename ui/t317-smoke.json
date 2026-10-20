@@ -1,0 +1,14 @@
+{
+  "schema_version": "harvis-t317-smoke-summary-v1",
+  "observed_at": "2026-07-18T10:30:00+08:00",
+  "source_commit": "81102a3cfbb42e4562112cd5dc6c25111eeea9be",
+  "mode": "fixture",
+  "status": "verified",
+  "checks_passed": 23,
+  "checks_total": 23,
+  "live_complete": false,
+  "external_messages_sent": 0,
+  "scope_status": "verified",
+  "membership_status": "owner_confirmation_pending",
+  "report_ref": "T317 Roadmap stage record"
+}

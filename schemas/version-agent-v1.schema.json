@@ -1,0 +1,765 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Harvis Version Agent response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "ok",
+    "data",
+    "error",
+    "meta"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "harvis.version-agent.v1"
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "data": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "total",
+            "offset",
+            "nextOffset"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sourceVersion",
+                  "installedVersion",
+                  "runningVersion",
+                  "publishedVersion",
+                  "repositoryURL",
+                  "branch",
+                  "commit",
+                  "observedAt",
+                  "id",
+                  "name",
+                  "kind",
+                  "paths",
+                  "dirty",
+                  "note",
+                  "installations"
+                ],
+                "properties": {
+                  "sourceVersion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "installedVersion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "runningVersion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "publishedVersion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "repositoryURL": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "branch": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "commit": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "observedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "application",
+                      "runtime",
+                      "plugin",
+                      "repository"
+                    ]
+                  },
+                  "paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "dirty": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "installations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "profile",
+                        "version",
+                        "packagePresent"
+                      ],
+                      "properties": {
+                        "profile": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "packagePresent": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "nextOffset": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "item",
+            "evidence",
+            "stateHash"
+          ],
+          "properties": {
+            "item": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sourceVersion",
+                "installedVersion",
+                "runningVersion",
+                "publishedVersion",
+                "repositoryURL",
+                "branch",
+                "commit",
+                "observedAt",
+                "id",
+                "name",
+                "kind",
+                "paths",
+                "dirty",
+                "note",
+                "installations"
+              ],
+              "properties": {
+                "sourceVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "installedVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "runningVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "publishedVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "repositoryURL": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "branch": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "commit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "observedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "application",
+                    "runtime",
+                    "plugin",
+                    "repository"
+                  ]
+                },
+                "paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "dirty": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "note": {
+                  "type": "string"
+                },
+                "installations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "profile",
+                      "version",
+                      "packagePresent"
+                    ],
+                    "properties": {
+                      "profile": {
+                        "type": "string"
+                      },
+                      "version": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "packagePresent": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sourceId",
+                "observedAt",
+                "ageSeconds",
+                "stale",
+                "status",
+                "runningVerified",
+                "publishedVerified"
+              ],
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "observedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "ageSeconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "stale": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "available",
+                    "stale",
+                    "unknown",
+                    "clock_skew"
+                  ]
+                },
+                "runningVerified": {
+                  "const": false
+                },
+                "publishedVerified": {
+                  "const": false
+                }
+              }
+            },
+            "stateHash": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "itemId",
+            "operation",
+            "targetVersion",
+            "createdAt",
+            "expiresAt",
+            "expectedStateHash",
+            "dryRun",
+            "executable",
+            "before",
+            "requestedAfter",
+            "blockers",
+            "steps",
+            "rollback",
+            "notice",
+            "planHash"
+          ],
+          "properties": {
+            "itemId": {
+              "type": "string"
+            },
+            "operation": {
+              "enum": [
+                "upgrade",
+                "switch",
+                "rollback"
+              ]
+            },
+            "targetVersion": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "string"
+            },
+            "expectedStateHash": {
+              "type": "string"
+            },
+            "dryRun": {
+              "const": true
+            },
+            "executable": {
+              "const": false
+            },
+            "before": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sourceVersion",
+                "installedVersion",
+                "paths"
+              ],
+              "properties": {
+                "sourceVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "installedVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "paths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "requestedAfter": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "version",
+                "verified"
+              ],
+              "properties": {
+                "version": {
+                  "type": "string"
+                },
+                "verified": {
+                  "const": false
+                }
+              }
+            },
+            "blockers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rollback": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "implemented",
+                "backupCreated",
+                "requirement"
+              ],
+              "properties": {
+                "implemented": {
+                  "const": false
+                },
+                "backupCreated": {
+                  "const": false
+                },
+                "requirement": {
+                  "type": "string"
+                }
+              }
+            },
+            "notice": {
+              "type": "string"
+            },
+            "planHash": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "unchanged",
+            "executable",
+            "reason",
+            "planHash",
+            "notice"
+          ],
+          "properties": {
+            "unchanged": {
+              "const": true
+            },
+            "executable": {
+              "const": false
+            },
+            "reason": {
+              "const": "EXECUTOR_UNAVAILABLE"
+            },
+            "planHash": {
+              "type": "string"
+            },
+            "notice": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "operations",
+            "mutationsEnabled",
+            "dryRunOnly",
+            "contractVersion",
+            "errorExitCodes",
+            "refreshSemantics",
+            "planTTLSeconds",
+            "planIsAuthorization"
+          ],
+          "properties": {
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "mutationsEnabled": {
+              "const": false
+            },
+            "dryRunOnly": {
+              "const": true
+            },
+            "contractVersion": {
+              "const": "harvis.version-agent.v1"
+            },
+            "errorExitCodes": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              }
+            },
+            "refreshSemantics": {
+              "type": "string"
+            },
+            "planTTLSeconds": {
+              "const": 900
+            },
+            "planIsAuthorization": {
+              "const": false
+            }
+          }
+        }
+      ]
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message",
+            "retryable",
+            "exitCode"
+          ],
+          "properties": {
+            "code": {
+              "enum": [
+                "INVALID_ARGUMENT",
+                "CONFIG_INVALID",
+                "SOURCE_UNAVAILABLE",
+                "NOT_FOUND",
+                "SNAPSHOT_CHANGED",
+                "PLAN_CHANGED",
+                "PLAN_EXPIRED",
+                "INTERNAL_ERROR",
+                "EXECUTOR_UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "exitCode": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 9
+            }
+          }
+        }
+      ]
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "generatedAt",
+        "snapshotRevision",
+        "partial",
+        "sources",
+        "warnings"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string"
+        },
+        "generatedAt": {
+          "type": "string"
+        },
+        "snapshotRevision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "kind",
+              "location",
+              "observedAt",
+              "ageSeconds",
+              "stale",
+              "status",
+              "revision"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "snapshot",
+                  "local-read"
+                ]
+              },
+              "location": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "observedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ageSeconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "stale": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "available",
+                  "stale",
+                  "partial",
+                  "unavailable",
+                  "unconfigured",
+                  "unknown",
+                  "clock_skew"
+                ]
+              },
+              "revision": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retained": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "type": "null"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "object"
+          },
+          "data": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

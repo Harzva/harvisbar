@@ -1,0 +1,46 @@
+# Build artifacts
+target/
+target
+.build/
+__pycache__/
+.local-smoke-test-*/
+
+# Runtime state tree (local config, events, approvals — never versioned)
+.harvis/
+
+# macOS
+.DS_Store
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+auth.json
+credentials/
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+
+# Personal Homes, local state and diagnostics
+.codex/
+codex-home/
+sessions/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+node_modules/
+.venv/
+venv/
+coverage/
+dist/
+*.app/
+*.dmg
+*.xcarchive/
+*.dSYM/

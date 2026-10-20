@@ -1,0 +1,468 @@
+{
+  "schemaVersion": "harvis.version-management.phase3-evidence.v1",
+  "phase": 3,
+  "status": "complete",
+  "acceptance": "passed",
+  "phase4Allowed": true,
+  "phase4Status": "in-progress",
+  "source": {
+    "commit": "c2df3a7db32a487a15eeefb357817adade11bcd0",
+    "tree": "30c9f28a8353f1d1295b9345de05363affa7c376",
+    "version": "0.36.0",
+    "latestChangeScope": [
+      "HarvisVersionInspector",
+      "HarvisVersionInspectorTests"
+    ],
+    "versionCatalogViewChangedByLatestCommit": false,
+    "layoutChangedByLatestCommit": false
+  },
+  "tests": {
+    "swiftFull": {
+      "executed": 509,
+      "passed": 509,
+      "status": "passed"
+    },
+    "fullPermissionFocused": {
+      "executed": 5,
+      "passed": 5,
+      "status": "passed"
+    },
+    "rustFullBaseline": {
+      "executed": 266,
+      "passed": 266,
+      "status": "passed",
+      "scope": "previous-same-version-candidate",
+      "latestPatchRustChanged": false,
+      "rerunClaimedForLatestPatch": false
+    }
+  },
+  "candidate": {
+    "version": "0.36.0",
+    "provenanceSha256": "3573758088e829d723f1dca726581aaf6674403f33f7d255f8bbcd9b3331d5de",
+    "stagedPayloadSha256": "08079b9b46cd0c8dd1174c72e456d7cfba00883ad39258954be78f6bffe72437",
+    "bundlePayloadSha256": "0893a5dc26a5771a0c0054c7cf23b566b9464ea0be07571342ac27781ed76bfc",
+    "cacheKey": "personal/harvis/0.2.0+codex.p2-2e33868a2994858886a10a04d8f72207e61be779df08ad3cdc259c613b79d6d5"
+  },
+  "installed": {
+    "version": "0.36.0",
+    "mainSha256": "c260e33247d4fc117bdd38f9eb68b1162230591418794fa92843a28747f38273",
+    "receiptSha256": "1e88cfefb954c0d986c0521fcff51b01e822c847ab21d88300cd1c159bccbb7a",
+    "helperSha256": "67778a47d70012a808ab37dc000bee7e3f37d773c3ace337eb5b368abf68a57f",
+    "systemExtensionSignedExecutableSha256": "0da0fc611ba682155eba5f541c25451aa6793a9a15f2282b6e9656a5d0dbdb67",
+    "systemExtensionUnsignedArtifactSha256": "77b05c1612f647fba2e40a123a89bb4b0a79bd694e1b1f642a37e1da5bf25554",
+    "verifierOk": true,
+    "deepCodesignStrictPassed": true
+  },
+  "previousProductionUiEvidence": {
+    "version": "0.36.0",
+    "sourceCommit": "1ab57d85ffe4e8580996d0c9fa0afef2a1ab580b",
+    "scope": "previous-same-version-candidate-structural-regression-baseline",
+    "applicableToFinalLayoutAcceptance": true,
+    "applicabilityReason": "final-diff-did-not-change-HarvisVersionCatalogView-or-layout",
+    "rawRetained": false,
+    "coldRestartPersistence": {
+      "contentSize": {
+        "width": 1060,
+        "height": 700
+      },
+      "summarySha256": "623028d546042f0a3cf1819637e8685423b5b2566e31131f7548cdc511af0e1a"
+    },
+    "assertions": {
+      "windowIdentifier": "harvis-version-catalog-window",
+      "refreshIdentifier": "harvis-version-refresh",
+      "freshAxPerStep": true,
+      "sidebarSelectedCount": 1,
+      "detailRootCount": 1,
+      "detailRoots": [
+        "harvis-version-detail-overview",
+        "harvis-version-detail-installed-app",
+        "harvis-version-detail-stable-helper",
+        "harvis-version-detail-source-worktree",
+        "harvis-version-detail-local-worktrees"
+      ]
+    },
+    "captures": [
+      {
+        "sizeClass": "compact",
+        "contentSize": {
+          "width": 860,
+          "height": 560
+        },
+        "captureSize": {
+          "width": 860,
+          "height": 612
+        },
+        "section": "overview",
+        "detailRoot": "harvis-version-detail-overview",
+        "captureSha256": "25712088a912ee41efa1ff8adbed63380ba46f8a09510581ff73ee8e19abb8c3"
+      },
+      {
+        "sizeClass": "compact",
+        "contentSize": {
+          "width": 860,
+          "height": 560
+        },
+        "captureSize": {
+          "width": 860,
+          "height": 612
+        },
+        "section": "installed-app",
+        "detailRoot": "harvis-version-detail-installed-app",
+        "captureSha256": "f2ef0db3cb07ff7db17bb56c45ce7a454f1e31748d1896530334d44f12e46a84"
+      },
+      {
+        "sizeClass": "compact",
+        "contentSize": {
+          "width": 860,
+          "height": 560
+        },
+        "captureSize": {
+          "width": 860,
+          "height": 612
+        },
+        "section": "stable-helper",
+        "detailRoot": "harvis-version-detail-stable-helper",
+        "captureSha256": "3d21cee480f136720774e655c8fc4b81fb871be76471db315bc95183e3ff4b76"
+      },
+      {
+        "sizeClass": "compact",
+        "contentSize": {
+          "width": 860,
+          "height": 560
+        },
+        "captureSize": {
+          "width": 860,
+          "height": 612
+        },
+        "section": "source-worktree",
+        "detailRoot": "harvis-version-detail-source-worktree",
+        "captureSha256": "90df88dcbd4ded84de16d24cc136846a0f194088e69692c18471b1baba6fa565"
+      },
+      {
+        "sizeClass": "compact",
+        "contentSize": {
+          "width": 860,
+          "height": 560
+        },
+        "captureSize": {
+          "width": 860,
+          "height": 612
+        },
+        "section": "local-worktrees",
+        "detailRoot": "harvis-version-detail-local-worktrees",
+        "captureSha256": "057ab1fe50ce6ae9577148e78829fed61ed2affe189c966ac2c8c0dc10da34d6"
+      },
+      {
+        "sizeClass": "standard",
+        "contentSize": {
+          "width": 1060,
+          "height": 700
+        },
+        "captureSize": {
+          "width": 1060,
+          "height": 752
+        },
+        "section": "overview",
+        "detailRoot": "harvis-version-detail-overview",
+        "captureSha256": "960e521f70fbc4eace5178c7c3a7af9e1f0cfe56cddc3501003e477633b2053e"
+      },
+      {
+        "sizeClass": "standard",
+        "contentSize": {
+          "width": 1060,
+          "height": 700
+        },
+        "captureSize": {
+          "width": 1060,
+          "height": 752
+        },
+        "section": "installed-app",
+        "detailRoot": "harvis-version-detail-installed-app",
+        "captureSha256": "05eef6e838d4c14858eae8be35ff1ea716c9f1e35313bb0bda636c2eeeaa4956"
+      },
+      {
+        "sizeClass": "standard",
+        "contentSize": {
+          "width": 1060,
+          "height": 700
+        },
+        "captureSize": {
+          "width": 1060,
+          "height": 752
+        },
+        "section": "stable-helper",
+        "detailRoot": "harvis-version-detail-stable-helper",
+        "captureSha256": "9d45cf3ba02f5a45238e1d775fbf03733292cc6db27bbeb4f7494f346804170c"
+      },
+      {
+        "sizeClass": "standard",
+        "contentSize": {
+          "width": 1060,
+          "height": 700
+        },
+        "captureSize": {
+          "width": 1060,
+          "height": 752
+        },
+        "section": "source-worktree",
+        "detailRoot": "harvis-version-detail-source-worktree",
+        "captureSha256": "aed00f89e62f5cd690f6cbf17770f4f68b86b11ddf8f46d8a26fb5f3f9233914"
+      },
+      {
+        "sizeClass": "standard",
+        "contentSize": {
+          "width": 1060,
+          "height": 700
+        },
+        "captureSize": {
+          "width": 1060,
+          "height": 752
+        },
+        "section": "local-worktrees",
+        "detailRoot": "harvis-version-detail-local-worktrees",
+        "captureSha256": "576c78600f5dc6be71ec29182bddd750820ca2242508cfb22cec389c636fc1bc"
+      },
+      {
+        "sizeClass": "large",
+        "contentSize": {
+          "width": 1280,
+          "height": 800
+        },
+        "cgFrameSize": {
+          "width": 1280,
+          "height": 852
+        },
+        "captureSize": {
+          "width": 1154,
+          "height": 768
+        },
+        "captureDownscaled": true,
+        "section": "overview",
+        "detailRoot": "harvis-version-detail-overview",
+        "captureSha256": "e0bea10ec2c3718a1578784ae6ca48554918e2e23290f394e450d5a140f6dfe4"
+      },
+      {
+        "sizeClass": "large",
+        "contentSize": {
+          "width": 1280,
+          "height": 800
+        },
+        "cgFrameSize": {
+          "width": 1280,
+          "height": 852
+        },
+        "captureSize": {
+          "width": 1154,
+          "height": 768
+        },
+        "captureDownscaled": true,
+        "section": "installed-app",
+        "detailRoot": "harvis-version-detail-installed-app",
+        "captureSha256": "2a8d5b92a8d39112c35ba75ba3747e9c04c318b3f83c1ebeab4685202429662e"
+      },
+      {
+        "sizeClass": "large",
+        "contentSize": {
+          "width": 1280,
+          "height": 800
+        },
+        "cgFrameSize": {
+          "width": 1280,
+          "height": 852
+        },
+        "captureSize": {
+          "width": 1154,
+          "height": 768
+        },
+        "captureDownscaled": true,
+        "section": "stable-helper",
+        "detailRoot": "harvis-version-detail-stable-helper",
+        "captureSha256": "d30bb565711b6f4d898b6bcf52fe49a4b4d4f8d824ca2d4df4fedc750f29305e"
+      },
+      {
+        "sizeClass": "large",
+        "contentSize": {
+          "width": 1280,
+          "height": 800
+        },
+        "cgFrameSize": {
+          "width": 1280,
+          "height": 852
+        },
+        "captureSize": {
+          "width": 1154,
+          "height": 768
+        },
+        "captureDownscaled": true,
+        "section": "source-worktree",
+        "detailRoot": "harvis-version-detail-source-worktree",
+        "captureSha256": "980d350c2c94cccebf787e8bb83e49857dbd6ce6de8acf05ccde0427189da55e"
+      },
+      {
+        "sizeClass": "large",
+        "contentSize": {
+          "width": 1280,
+          "height": 800
+        },
+        "cgFrameSize": {
+          "width": 1280,
+          "height": 852
+        },
+        "captureSize": {
+          "width": 1154,
+          "height": 768
+        },
+        "captureDownscaled": true,
+        "section": "local-worktrees",
+        "detailRoot": "harvis-version-detail-local-worktrees",
+        "captureSha256": "831e88ec0e111493987dc03f101f80b917ea9b6710c677106c24c6ff03fdd350"
+      }
+    ]
+  },
+  "latestCandidateAcceptance": {
+    "fdaRebind": {
+      "status": "passed",
+      "confirmed": true,
+      "sequence": [
+        "harvisbar-off",
+        "quit-reopen",
+        "harvisbar-on",
+        "quit-reopen"
+      ],
+      "finalToggleOn": true,
+      "otherEntriesTouched": false,
+      "continuityClaim": false
+    },
+    "fullPermissionProbe": {
+      "status": "passed",
+      "passed": true,
+      "mode": "rust-service-manager-http",
+      "httpStatus": 200,
+      "probeOk": true,
+      "envelopeOk": true,
+      "dataOk": true,
+      "context": "rust-http-api",
+      "redacted": true,
+      "includesLocalAbsolutePaths": false,
+      "checkCount": 3,
+      "tokenValueReturned": false
+    },
+    "installedIdentity": {
+      "status": "passed",
+      "matched": true,
+      "verifierOk": true,
+      "deepCodesignStrictPassed": true
+    },
+    "receiptUi": {
+      "status": "passed",
+      "observedValue": "ready",
+      "trusted": true
+    },
+    "fourApis": {
+      "status": "passed",
+      "health": {
+        "httpStatus": 200,
+        "ok": true,
+        "missingErrors": 0,
+        "typeErrors": 0
+      },
+      "barStatus": {
+        "httpStatus": 200,
+        "ok": true,
+        "missingErrors": 0,
+        "typeErrors": 0
+      },
+      "taskProgress": {
+        "httpStatus": 200,
+        "ok": true,
+        "missingErrors": 0,
+        "typeErrors": 0
+      },
+      "permissionProbe": {
+        "httpStatus": 200,
+        "ok": true,
+        "missingErrors": 0,
+        "typeErrors": 0
+      }
+    },
+    "standardUi": {
+      "status": "passed",
+      "contentSize": {
+        "width": 1060,
+        "height": 700
+      },
+      "format": "image/jpeg",
+      "freshAxPassed": true,
+      "sourceStatus": "ready",
+      "alignment": "exact",
+      "appStatus": "ready",
+      "apiStatus": "ready",
+      "apiVersion": "v0.40-rust-alpha",
+      "helperStatus": "matched",
+      "provenanceStatus": "ready",
+      "provenanceCommitAbbreviation": "c2df3a7",
+      "worktreeCount": 6,
+      "worktreeRowCount": 6,
+      "manualRefreshFinalValue": "可刷新",
+      "manualRefreshFactsConsistent": true,
+      "captures": [
+        {
+          "section": "overview",
+          "detailRoot": "harvis-version-detail-overview",
+          "jpegSha256": "223f410b688ffefe21f56d7f90476a653c986d6d8764443049548a81b13b06f4"
+        },
+        {
+          "section": "installed-app",
+          "detailRoot": "harvis-version-detail-installed-app",
+          "jpegSha256": "cfb257a7f5d7f800f7b0764ed50d239b890701b2decd5a0f1080b2db6467bcf8"
+        },
+        {
+          "section": "stable-helper",
+          "detailRoot": "harvis-version-detail-stable-helper",
+          "jpegSha256": "c9582de54eff1f1b341416400e7ef1ca1835e2fa6de47887f87db47fac90ae12"
+        },
+        {
+          "section": "source-worktree",
+          "detailRoot": "harvis-version-detail-source-worktree",
+          "jpegSha256": "9981dff93f7bba3a94880f9c1f09283f7ba00e0a4e95b972068ac9d49d2c9114"
+        },
+        {
+          "section": "local-worktrees",
+          "detailRoot": "harvis-version-detail-local-worktrees",
+          "jpegSha256": "01eecacc633c28742a4f655fc2ee2e2dce8e08728e8655e98598e2417a1e305d"
+        }
+      ]
+    },
+    "previousThreeSizeEvidenceApplicable": {
+      "status": "passed",
+      "applicable": true,
+      "versionCatalogViewChanged": false,
+      "layoutChanged": false
+    },
+    "finalReview": {
+      "status": "passed",
+      "p0": 0,
+      "p1": 0,
+      "p2": 0,
+      "rawEvidenceCleanupConfirmed": true,
+      "rollbackBackupsRetained": true,
+      "candidateStageRetained": true,
+      "tempWorktreesRemoved": 3,
+      "rawApiJsonRemoved": 5
+    },
+    "rollbackBackups": {
+      "status": "retained",
+      "cleanupAttempted": false,
+      "retentionReason": "recovery-safety"
+    }
+  },
+  "privacy": {
+    "rawRetained": false,
+    "credentialsPersisted": false,
+    "personalAbsolutePathsPersisted": false,
+    "rawAxPersisted": false,
+    "rawApiBodiesPersisted": false,
+    "rawLogsPersisted": false,
+    "processIdentifiersPersisted": false
+  }
+}

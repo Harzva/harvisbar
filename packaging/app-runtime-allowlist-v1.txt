@@ -1,0 +1,14 @@
+# Files embedded under HarvisPlugin/ inside packaged macOS applications.
+.codex-plugin/plugin.json
+.mcp.json
+packaging/app-runtime-allowlist-v1.txt
+fixtures/
+mcp/
+panel/
+presence/
+references/
+schemas/
+scripts/
+skills/
+studio/
+ui/

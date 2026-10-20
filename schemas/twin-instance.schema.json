@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/twin-instance.schema.json",
+  "title": "H.A.R.V.I.S. Twin Instance",
+  "type": "object",
+  "required": [
+    "instance_id",
+    "display_name",
+    "memory_vault_id",
+    "persona_card_id",
+    "status",
+    "permissions"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "instance_id": {
+      "type": "string",
+      "pattern": "^(copyme|twin)_[A-Za-z0-9_-]+$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "memory_vault_id": {
+      "type": "string"
+    },
+    "persona_card_id": {
+      "type": "string"
+    },
+    "overlay_memory_id": {
+      "type": ["string", "null"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["running", "paused", "archived", "disabled"]
+    },
+    "permissions": {
+      "type": "object",
+      "required": ["read_memory", "write_candidate_memory", "write_accepted_memory", "run_tools"],
+      "additionalProperties": true
+    }
+  }
+}

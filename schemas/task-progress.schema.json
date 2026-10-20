@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/task-progress.schema.json",
+  "title": "H.A.R.V.I.S. Task Progress",
+  "oneOf": [
+    { "$ref": "#/$defs/status" },
+    { "$ref": "#/$defs/updateResult" }
+  ],
+  "$defs": {
+    "safety": {
+      "type": "object",
+      "required": ["redacted", "includesSecrets", "includesLocalAbsolutePaths"],
+      "additionalProperties": true,
+      "properties": {
+        "redacted": { "const": true },
+        "includesSecrets": { "const": false },
+        "includesLocalAbsolutePaths": { "const": false }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": [
+        "taskId",
+        "title",
+        "kind",
+        "status",
+        "summary",
+        "detail",
+        "progress",
+        "metrics",
+        "startedAt",
+        "updatedAt",
+        "safeForHarvisBar"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "taskId": { "type": "string", "maxLength": 120 },
+        "title": { "type": "string", "maxLength": 80 },
+        "kind": { "type": "string", "maxLength": 40 },
+        "status": { "type": "string", "maxLength": 32 },
+        "summary": { "type": "string", "maxLength": 180 },
+        "detail": { "type": "string", "maxLength": 180 },
+        "progress": { "type": "object" },
+        "metrics": { "type": "object" },
+        "startedAt": { "type": ["string", "null"] },
+        "updatedAt": { "type": ["string", "null"] },
+        "safeForHarvisBar": { "const": true }
+      }
+    },
+    "status": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "safeForHarvisBar",
+        "generatedAt",
+        "status",
+        "summary",
+        "activeCount",
+        "items",
+        "current",
+        "safety"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "schemaVersion": { "const": "harvis.task-progress.v0" },
+        "safeForHarvisBar": { "const": true },
+        "generatedAt": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["active", "idle", "skipped"] },
+        "summary": { "type": "string" },
+        "activeCount": { "type": "integer", "minimum": 0 },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/item" }
+        },
+        "current": {
+          "oneOf": [
+            { "$ref": "#/$defs/item" },
+            { "type": "null" }
+          ]
+        },
+        "safety": { "$ref": "#/$defs/safety" }
+      }
+    },
+    "updateResult": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "safeForHarvisBar",
+        "workspace",
+        "task",
+        "stored",
+        "safety"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "schemaVersion": { "const": "harvis.task-progress.v0" },
+        "safeForHarvisBar": { "const": true },
+        "workspace": { "type": "string" },
+        "task": { "$ref": "#/$defs/item" },
+        "stored": { "const": true },
+        "safety": { "$ref": "#/$defs/safety" }
+      }
+    }
+  }
+}

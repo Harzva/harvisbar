@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harvis.agent-room-task.schema.json",
+  "title": "H.A.R.V.I.S. Agent Room Task Record",
+  "type": "object",
+  "required": ["record_type", "task_id", "status"],
+  "properties": {
+    "record_type": { "enum": ["task", "task_status", "task_link"] },
+    "task_id": { "type": "string", "minLength": 1 },
+    "topic_id": { "type": "string" },
+    "title": { "type": "string" },
+    "description": { "type": ["string", "null"] },
+    "owner_slot_id": { "type": "string" },
+    "status": {
+      "enum": [
+        "pending",
+        "in_progress",
+        "waiting_approval",
+        "blocked",
+        "reviewing",
+        "done",
+        "cancelled"
+      ]
+    },
+    "source_event_id": { "type": ["string", "null"] },
+    "approval_id": { "type": ["string", "null"] },
+    "handoff_id": { "type": ["string", "null"] },
+    "run_id": { "type": ["string", "null"] },
+    "packet_id": { "type": ["string", "null"] },
+    "metadata": { "type": "object" },
+    "created_at": { "type": "string" },
+    "updated_at": { "type": ["string", "null"] },
+    "safety": {
+      "type": "object",
+      "properties": {
+        "executes_task": { "const": false },
+        "record_only": { "const": true }
+      }
+    }
+  },
+  "additionalProperties": true
+}

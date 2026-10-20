@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/harvis-core",
+  "crates/harvis-runtime",
+  "crates/harvis-integrations",
+  "crates/harvis-macos",
+  "crates/harvis-http",
+  "crates/harvis-mcp",
+  "crates/harvis-cli",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["Harzva"]
+version = "0.43.1"
+
+[workspace.dependencies]
+anyhow = "1"
+axum = "0.7"
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "1"
+time = { version = "0.3", features = ["formatting", "macros"] }
+tokio = { version = "1", features = ["macros", "process", "rt-multi-thread", "signal"] }
+toml = "0.8"
+tower-http = { version = "0.5", features = ["cors", "fs"] }
+walkdir = "2"
+
+[profile.release]
+strip = "symbols"

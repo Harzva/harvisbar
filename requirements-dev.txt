@@ -1,0 +1,2 @@
+# Reuse the pinned schema and official MCP client test dependencies.
+-r tests/requirements-version-agent.txt

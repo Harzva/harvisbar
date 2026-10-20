@@ -1,0 +1,548 @@
+{
+  "version": "harvis.agent-pools.v0",
+  "safety": {
+    "includesSecrets": false,
+    "includesCredentialValues": false,
+    "includesCredentialPaths": false,
+    "reviewGateRequired": true
+  },
+  "routing_policy": {
+    "agent_identity_source": "agent-roster",
+    "harness_selection": "task-capability",
+    "model_selection": "task-capability",
+    "fallback_mode": "ordered"
+  },
+  "harness_pool": [
+    {
+      "harness_id": "codex",
+      "label": "Codex CLI",
+      "kind": "codex",
+      "status": "active",
+      "command_aliases": [
+        "codex",
+        "cxgpt55"
+      ],
+      "adapter": {
+        "mode": "cli",
+        "prompt_input": "stdin",
+        "result_output": "file"
+      },
+      "supports_model_override": true,
+      "default_model_id": "openai:gpt-5.5",
+      "allowed_model_ids": [
+        "openai:gpt-5-codex",
+        "openai:gpt-5.3-codex-spark",
+        "openai:gpt-5.5"
+      ],
+      "review_gate": "required"
+    },
+    {
+      "harness_id": "dsh",
+      "label": "Digital-Me DSH",
+      "kind": "dsh",
+      "status": "active",
+      "command_aliases": [
+        "dsh",
+        "digital-me"
+      ],
+      "adapter": {
+        "mode": "cli",
+        "prompt_input": "arg",
+        "result_output": "file"
+      },
+      "supports_model_override": false,
+      "default_model_id": "dsh:profile-default",
+      "allowed_model_ids": [
+        "dsh:profile-default"
+      ],
+      "review_gate": "required",
+      "notes": "DSH/Cordis agent loop with the isolated Digital-Me profile; provider and model selection remain profile-owned."
+    },
+    {
+      "harness_id": "kimicode",
+      "label": "Kimi Code",
+      "kind": "kimi-code",
+      "status": "active",
+      "command_aliases": [
+        "kimicode",
+        "kimi"
+      ],
+      "adapter": {
+        "mode": "cli",
+        "prompt_input": "arg",
+        "result_output": "stdout"
+      },
+      "supports_model_override": true,
+      "default_model_id": "moonshot-kimi:kimi-code/kimi-for-coding",
+      "allowed_model_ids": [
+        "moonshot-kimi:kimi-code/kimi-for-coding",
+        "moonshot-kimi:kimi-k2"
+      ],
+      "review_gate": "required"
+    },
+    {
+      "harness_id": "mimocode",
+      "label": "MiMoCode",
+      "kind": "other",
+      "status": "active",
+      "command_aliases": [
+        "mimocode",
+        "mimo"
+      ],
+      "adapter": {
+        "mode": "cli",
+        "prompt_input": "arg",
+        "result_output": "stdout"
+      },
+      "supports_model_override": true,
+      "default_model_id": "xiaomi:mimo-v2.5-pro-ultraspeed",
+      "allowed_model_ids": [
+        "xiaomi:mimo-v2.5",
+        "xiaomi:mimo-v2.5-pro",
+        "xiaomi:mimo-v2.5-pro-ultraspeed"
+      ],
+      "review_gate": "required"
+    },
+    {
+      "harness_id": "claude-code",
+      "label": "Claude Code",
+      "kind": "claude-code",
+      "status": "active",
+      "command_aliases": [
+        "claude",
+        "ccdeepseek"
+      ],
+      "adapter": {
+        "mode": "cli",
+        "prompt_input": "arg",
+        "result_output": "stdout"
+      },
+      "supports_model_override": true,
+      "default_model_id": "anthropic:claude-code-default",
+      "allowed_model_ids": [
+        "anthropic:claude-code-default",
+        "deepseek:deepseek-v4-pro",
+        "deepseek:deepseek-v4-flash"
+      ],
+      "review_gate": "required"
+    },
+    {
+      "harness_id": "likecode",
+      "label": "LikeCode",
+      "kind": "likecode",
+      "status": "active",
+      "command_aliases": [
+        "likecode"
+      ],
+      "adapter": {
+        "mode": "cli",
+        "prompt_input": "arg",
+        "result_output": "stdout"
+      },
+      "supports_model_override": true,
+      "default_model_id": "deepseek:deepseek-v4-pro",
+      "allowed_model_ids": [
+        "deepseek:deepseek-v4-pro",
+        "deepseek:deepseek-v4-flash"
+      ],
+      "review_gate": "required",
+      "notes": "Independent LikeCode framework harness; local macOS shim runs the LikeCode source entrypoint with route alias d4p."
+    }
+  ],
+  "runtime_preset_pool": [
+    {
+      "preset_id": "digital-me-dsh",
+      "label": "Digital-Me DSH",
+      "harness_id": "dsh",
+      "model_id": "dsh:profile-default",
+      "status": "active",
+      "command_aliases": [
+        "digital-me",
+        "dsh"
+      ],
+      "wrapper_skill_id": "digital-me-runtime",
+      "review_gate": "required",
+      "notes": "Default Digital-Me runtime: DSH owns the agent loop and Cordis composition while HARVIS keeps routing, approval, audit, and review boundaries."
+    },
+    {
+      "preset_id": "cxspark",
+      "label": "CX Spark",
+      "harness_id": "codex",
+      "model_id": "openai:gpt-5.3-codex-spark",
+      "status": "active",
+      "command_aliases": [
+        "cxspark"
+      ],
+      "wrapper_skill_id": "cxspark",
+      "review_gate": "required",
+      "notes": "Codex harness plus Spark/Codex-Spark model preset."
+    },
+    {
+      "preset_id": "cckimi",
+      "label": "CC Kimi",
+      "harness_id": "kimicode",
+      "model_id": "moonshot-kimi:kimi-code/kimi-for-coding",
+      "status": "active",
+      "command_aliases": [
+        "cckimi",
+        "kimi"
+      ],
+      "wrapper_skill_id": "cckimi",
+      "review_gate": "required",
+      "notes": "Kimi Code route with the built-in/default Kimi coding model."
+    },
+    {
+      "preset_id": "mimocode",
+      "label": "MiMoCode",
+      "harness_id": "mimocode",
+      "model_id": "xiaomi:mimo-v2.5-pro-ultraspeed",
+      "status": "active",
+      "command_aliases": [
+        "mimocode",
+        "mimo"
+      ],
+      "wrapper_skill_id": "mimocode",
+      "review_gate": "required",
+      "notes": "Native MiMoCode route using the authenticated Xiaomi MiMo CLI."
+    },
+  {
+    "preset_id": "ccdeepseek",
+      "label": "CC DeepSeek",
+      "harness_id": "claude-code",
+      "model_id": "deepseek:deepseek-v4-pro",
+      "status": "active",
+      "command_aliases": [
+        "ccdeepseek",
+        "deepseek",
+        "d4p"
+      ],
+      "wrapper_skill_id": "ccdeepseek",
+      "review_gate": "required",
+    "notes": "Claude Code route configured through settings.deepseek-harvis.json with DeepSeek v4 Pro."
+  },
+  {
+    "preset_id": "codex-controller",
+    "label": "Codex Controller",
+    "harness_id": "codex",
+    "model_id": "openai:gpt-5.5",
+    "status": "active",
+    "command_aliases": [
+      "codex-controller",
+      "codex-control",
+      "workflow-controller"
+    ],
+    "wrapper_skill_id": "",
+    "review_gate": "required",
+    "notes": "Codex CLI preset used as the control-plane orchestrator for multi-stage workflows; Harvis remains transport, state, approval, card, and log layer."
+  },
+  {
+    "preset_id": "cxgpt55",
+      "label": "CX GPT-5.5 Browser",
+      "harness_id": "codex",
+      "model_id": "openai:gpt-5.5",
+      "status": "active",
+      "command_aliases": [
+        "cxgpt55",
+        "gpt55",
+        "browser"
+      ],
+      "wrapper_skill_id": "",
+      "review_gate": "required",
+      "notes": "Codex harness plus GPT-5.5 preset for browser, Playwright, and computer-use style tasks; runner uses native codex exec."
+    }
+  ],
+  "model_pool": [
+    {
+      "model_id": "dsh:profile-default",
+      "label": "DSH Profile Default",
+      "provider": "other",
+      "status": "active",
+      "credential_ref": {
+        "kind": "cli-profile",
+        "ref": "dsh-settings",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "reasoning",
+        "tool-use",
+        "review",
+        "subagents",
+        "workflows"
+      ],
+      "preferred_harness_ids": [
+        "dsh"
+      ],
+      "preferred_preset_ids": [
+        "digital-me-dsh"
+      ],
+      "fallback_model_ids": [
+        "openai:gpt-5.5"
+      ],
+      "notes": "Logical model id: the concrete provider/model is selected by the isolated DSH profile and is not duplicated into public-safe HARVIS metadata."
+    },
+    {
+      "model_id": "openai:gpt-5-codex",
+      "label": "GPT-5 Codex",
+      "provider": "openai",
+      "status": "active",
+      "credential_ref": {
+        "kind": "cli-profile",
+        "ref": "codex-login",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "reasoning",
+        "tool-use",
+        "review"
+      ],
+      "preferred_harness_ids": [
+        "codex"
+      ],
+      "fallback_model_ids": [
+        "openai:gpt-5.3-codex-spark"
+      ]
+    },
+    {
+      "model_id": "openai:gpt-5.3-codex-spark",
+      "label": "GPT-5.3 Codex Spark",
+      "provider": "openai",
+      "status": "active",
+      "credential_ref": {
+        "kind": "cli-profile",
+        "ref": "codex-login",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "fast-reply",
+        "tool-use"
+      ],
+      "preferred_harness_ids": [
+        "codex"
+      ],
+      "preferred_preset_ids": [
+        "cxspark"
+      ],
+      "fallback_model_ids": [
+        "moonshot-kimi:kimi-code/kimi-for-coding"
+      ]
+    },
+    {
+      "model_id": "moonshot-kimi:kimi-code/kimi-for-coding",
+      "label": "Kimi Code for Coding",
+      "provider": "moonshot-kimi",
+      "status": "active",
+      "credential_ref": {
+        "kind": "local-access-note",
+        "ref": "kimi-api-config",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "long-context",
+        "tool-use"
+      ],
+      "preferred_harness_ids": [
+        "kimicode"
+      ],
+      "fallback_model_ids": [
+        "deepseek:deepseek-chat"
+      ]
+    },
+    {
+      "model_id": "moonshot-kimi:kimi-k2",
+      "label": "Kimi K2",
+      "provider": "moonshot-kimi",
+      "status": "pending",
+      "credential_ref": {
+        "kind": "local-access-note",
+        "ref": "kimi-api-config",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "reasoning",
+        "long-context",
+        "summarization"
+      ],
+      "preferred_harness_ids": [
+        "kimicode",
+        "likecode"
+      ],
+      "fallback_model_ids": [
+        "deepseek:deepseek-reasoner"
+      ]
+    },
+    {
+      "model_id": "deepseek:deepseek-chat",
+      "label": "DeepSeek Chat",
+      "provider": "deepseek",
+      "status": "disabled",
+      "credential_ref": {
+        "kind": "local-access-note",
+        "ref": "deepseek-api-config",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "fast-reply",
+        "summarization"
+      ],
+      "preferred_harness_ids": [
+        "claude-code"
+      ],
+      "fallback_model_ids": [
+        "deepseek:deepseek-v4-pro"
+      ],
+      "notes": "Superseded by DeepSeek v4 route through Claude Code settings."
+    },
+    {
+      "model_id": "deepseek:deepseek-reasoner",
+      "label": "DeepSeek Reasoner",
+      "provider": "deepseek",
+      "status": "disabled",
+      "credential_ref": {
+        "kind": "local-access-note",
+        "ref": "deepseek-api-config",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "reasoning",
+        "review",
+        "long-context"
+      ],
+      "preferred_harness_ids": [
+        "claude-code"
+      ],
+      "fallback_model_ids": [
+        "deepseek:deepseek-v4-pro"
+      ],
+      "notes": "Superseded by DeepSeek v4 route through Claude Code settings."
+    },
+    {
+      "model_id": "anthropic:claude-code-default",
+      "label": "Claude Code Default",
+      "provider": "anthropic",
+      "status": "pending",
+      "credential_ref": {
+        "kind": "cli-profile",
+        "ref": "claude-code-login",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "reasoning",
+        "tool-use",
+        "review"
+      ],
+      "preferred_harness_ids": [
+        "claude-code"
+      ],
+      "fallback_model_ids": [
+        "xiaomi:mimo-v2.5-pro-ultraspeed"
+      ]
+    },
+    {
+      "model_id": "xiaomi:mimo-v2.5-pro-ultraspeed",
+      "label": "MiMo v2.5 Pro Ultraspeed",
+      "provider": "other",
+      "status": "active",
+      "credential_ref": {
+        "kind": "cli-profile",
+        "ref": "mimocode-login",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "reasoning",
+        "review"
+      ],
+      "preferred_harness_ids": [
+        "mimocode"
+      ],
+      "fallback_model_ids": [
+        "xiaomi:mimo-v2.5-pro",
+        "openai:gpt-5-codex"
+      ]
+    },
+    {
+      "model_id": "deepseek:deepseek-v4-pro",
+      "label": "DeepSeek V4 Pro",
+      "provider": "deepseek",
+      "status": "active",
+      "capabilities": [
+        "coding",
+        "reasoning",
+        "long-context",
+        "summarization",
+        "review"
+      ],
+      "credential_ref": {
+        "kind": "local-access-note",
+        "ref": "deepseek-api-config",
+        "contains_secret_value": false
+      },
+      "preferred_harness_ids": [
+        "claude-code"
+      ],
+      "preferred_preset_ids": [
+        "ccdeepseek"
+      ],
+      "fallback_model_ids": [
+        "deepseek:deepseek-v4-flash"
+      ]
+    },
+    {
+      "model_id": "deepseek:deepseek-v4-flash",
+      "label": "DeepSeek V4 Flash",
+      "provider": "deepseek",
+      "status": "active",
+      "capabilities": [
+        "fast-reply",
+        "summarization",
+        "coding"
+      ],
+      "credential_ref": {
+        "kind": "local-access-note",
+        "ref": "deepseek-api-config",
+        "contains_secret_value": false
+      },
+      "preferred_harness_ids": [
+        "claude-code"
+      ],
+      "fallback_model_ids": [
+        "deepseek:deepseek-v4-pro"
+      ]
+    },
+    {
+      "model_id": "openai:gpt-5.5",
+      "label": "GPT-5.5",
+      "provider": "openai",
+      "status": "active",
+      "credential_ref": {
+        "kind": "cli-profile",
+        "ref": "codex-login",
+        "contains_secret_value": false
+      },
+      "capabilities": [
+        "coding",
+        "reasoning",
+        "tool-use",
+        "browser-control",
+        "computer-use",
+        "review"
+      ],
+      "preferred_harness_ids": [
+        "codex"
+      ],
+      "preferred_preset_ids": [
+        "cxgpt55"
+      ],
+      "fallback_model_ids": [
+        "openai:gpt-5-codex",
+        "openai:gpt-5.3-codex-spark"
+      ]
+    }
+  ]
+}

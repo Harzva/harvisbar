@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>H.A.R.V.I.S. Agent Room Roundtable</title>
+    <link rel="icon" href="/studio/assets/harvis-app-icon.png" />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --panel-soft: #f3f6fb;
+        --ink: #202329;
+        --muted: #7d8490;
+        --line: #e5e9f0;
+        --blue: #3268d8;
+        --green: #24966d;
+        --shadow: 0 18px 52px rgba(36, 46, 66, 0.10);
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(244,247,252,0.96)), var(--bg);
+        color: var(--ink);
+      }
+      button, input { font: inherit; }
+      .app {
+        width: min(1280px, calc(100vw - 28px));
+        margin: 0 auto;
+        padding: 18px 0 24px;
+      }
+      .topbar, .connection, .chat-panel, .side {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.92);
+        box-shadow: var(--shadow);
+      }
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 14px 16px;
+      }
+      h1, p { margin: 0; }
+      h1 { font-size: 1.08rem; }
+      .subtitle, .muted { color: var(--muted); }
+      .pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+      .pill, .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        border-radius: 999px;
+        background: var(--panel-soft);
+        color: var(--muted);
+        padding: 3px 9px;
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+      .connection {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(160px, 260px) auto;
+        gap: 10px;
+        margin-top: 12px;
+        padding: 10px 12px;
+      }
+      .connection input, .composer input {
+        width: 100%;
+        min-height: 36px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--panel-soft);
+        outline: none;
+        padding: 8px 10px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 230px minmax(0, 1fr) 290px;
+        gap: 14px;
+        margin-top: 14px;
+      }
+      .side { padding: 12px; }
+      .side h2 { margin: 0 0 10px; font-size: 0.86rem; }
+      .agent-filter { display: grid; gap: 7px; }
+      .agent-status {
+        color: var(--green);
+        font-size: 0.74rem;
+        font-weight: 800;
+      }
+      .filter-row {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        padding: 4px 7px;
+        cursor: pointer;
+        text-align: left;
+      }
+      .filter-row.active, .filter-row:hover { border-color: var(--line); background: var(--panel-soft); }
+      .avatar {
+        width: 28px;
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: #eef3ff;
+        color: var(--agent-color, var(--blue));
+        font-weight: 800;
+      }
+      .chat-panel { min-width: 0; overflow: hidden; }
+      .cards-panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.92);
+        box-shadow: var(--shadow);
+        padding: 12px;
+        min-width: 0;
+      }
+      .cards-panel h2 { margin: 0 0 10px; font-size: 0.86rem; }
+      .card-list { display: grid; gap: 9px; }
+      .room-card {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-soft);
+        padding: 9px;
+      }
+      .room-card strong { display: block; font-size: 0.84rem; margin-bottom: 5px; }
+      .room-card p { color: var(--muted); font-size: 0.78rem; line-height: 1.38; }
+      .thread-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(180px, 320px);
+        gap: 12px;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        padding: 11px 14px;
+      }
+      .message-list {
+        max-height: calc(100vh - 260px);
+        min-height: 560px;
+        overflow: auto;
+        padding: 18px 14px 20px;
+      }
+      .message {
+        display: grid;
+        grid-template-columns: 54px minmax(0, 1fr);
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .message-avatar {
+        width: 44px;
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: #eef3ff;
+        color: var(--agent-color, var(--blue));
+        font-weight: 900;
+      }
+      .message-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 7px; }
+      .agent-name { font-weight: 800; }
+      .time { color: var(--muted); font-size: 0.86rem; }
+      .tag { color: var(--blue); background: #eff5ff; font-weight: 700; }
+      .tag.topic { color: var(--muted); background: transparent; font-weight: 500; }
+      .bubble {
+        border: 1px solid rgba(223,228,236,0.92);
+        border-radius: 8px;
+        background: rgba(249,251,255,0.92);
+        box-shadow: 0 10px 32px rgba(36,46,66,0.06);
+      }
+      .bubble-body {
+        padding: 16px 18px;
+        font-size: clamp(1rem, 1.55vw, 1.32rem);
+        line-height: 1.58;
+        white-space: pre-wrap;
+      }
+      .bubble-note {
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        padding: 8px 18px 10px;
+        font-size: 0.86rem;
+      }
+      .composer {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 10px;
+        border-top: 1px solid var(--line);
+        background: rgba(255,255,255,0.94);
+        padding: 12px 14px;
+      }
+      .model-picker {
+        position: absolute;
+        left: 14px;
+        bottom: 58px;
+        z-index: 5;
+        display: none;
+        width: max-content;
+        min-width: min(340px, calc(100% - 28px));
+        max-width: min(460px, calc(100% - 28px));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255,255,255,0.86);
+        backdrop-filter: blur(18px) saturate(1.18);
+        box-shadow: 0 16px 42px rgba(36,46,66,0.16);
+        padding: 6px;
+      }
+      .model-picker.open { display: grid; }
+      .model-option {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 7px;
+        align-items: center;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.54);
+        padding: 5px 7px;
+        cursor: pointer;
+        text-align: left;
+      }
+      .model-option small { grid-column: 2; color: var(--muted); }
+      .model-option.active, .model-option:hover { border-color: #b9c8ee; background: rgba(238,245,255,0.86); }
+      .composer-status { grid-column: 1 / -1; min-height: 18px; color: var(--muted); font-size: 0.8rem; }
+      button, .button-link {
+        min-height: 36px;
+        border: 0;
+        border-radius: 7px;
+        background: #111827;
+        color: #fff;
+        padding: 0 12px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      button.secondary, .button-link.secondary { border: 1px solid var(--line); background: var(--panel-soft); color: var(--ink); }
+      button:disabled { cursor: wait; opacity: 0.62; }
+      @media (max-width: 860px) {
+        .topbar, .connection, .layout, .thread-head, .composer { grid-template-columns: 1fr; }
+        .message-list { min-height: 480px; max-height: none; }
+        .message { grid-template-columns: 38px minmax(0, 1fr); }
+        .message-avatar { width: 34px; }
+      }
+    </style>
+    <link rel="stylesheet" href="/ui/tokens.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <h1>H.A.R.V.I.S. Agent Room Roundtable</h1>
+          <p class="subtitle">Rust HTTP API + provider registry + Agent Room JSONL.</p>
+        </div>
+        <div class="pills">
+          <span class="pill"><strong>harness</strong>&nbsp;conversation</span>
+          <span class="pill"><strong>storage</strong>&nbsp;.harvis/agent-room</span>
+          <span class="pill"><strong>runtime</strong>&nbsp;rust</span>
+        </div>
+      </header>
+
+      <section class="connection">
+        <label><span class="muted">Workspace</span><input id="rootInput" autocomplete="off" spellcheck="false" placeholder="Runtime workspace" readonly /></label>
+        <label><span class="muted">Session token</span><input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="Memory only" aria-label="Session bearer token, kept only in page memory" /></label>
+        <a class="button-link secondary" href="/studio/">Studio</a>
+      </section>
+
+      <section class="layout">
+        <aside class="side">
+          <h2>Agents</h2>
+          <div id="agentFilter" class="agent-filter"></div>
+        </aside>
+        <section class="chat-panel">
+          <div class="thread-head">
+            <div>
+              <strong>Live Agent Room</strong>
+              <span class="muted">provider registry messages</span>
+            </div>
+            <input id="searchInput" autocomplete="off" placeholder="Search message, tag, model..." />
+          </div>
+          <div id="messageList" class="message-list"></div>
+          <form id="composerForm" class="composer">
+            <div id="modelPicker" class="model-picker"></div>
+            <input id="composerInput" autocomplete="off" placeholder="@d4f 输入你好，或写主题后点 Auto talk..." />
+            <button id="stepButton" class="secondary" type="button">Step</button>
+            <button id="autoButton" class="secondary" type="button">Auto talk</button>
+            <button id="sendButton" type="submit">Send</button>
+            <div id="composerStatus" class="composer-status">Connects to POST /agent-room/send and /agent-room/autochat.</div>
+          </form>
+        </section>
+        <aside class="cards-panel">
+          <h2>Decision / Handoff / Evidence</h2>
+          <div id="cardList" class="card-list"></div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="/ui/runtime.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let modelOptions = [
+        { id: "d4f", agent: "deepseek-v4-flash", role: "planner", initial: "F", color: "#4f6fd8", description: "fast planner" },
+        { id: "d4p", agent: "deepseek-v4-pro", role: "reviewer", initial: "P", color: "#2d8f6f", description: "careful reviewer" },
+      ];
+      const messages = [];
+      const cards = [];
+      let selectedModel = modelOptions[0];
+      let activeAgent = "all";
+      let isBusy = false;
+      let currentTopicId = "";
+      let runtimeRoot = "";
+
+      const els = {
+        root: $("rootInput"),
+        token: $("tokenInput"),
+        filter: $("agentFilter"),
+        list: $("messageList"),
+        search: $("searchInput"),
+        form: $("composerForm"),
+        input: $("composerInput"),
+        picker: $("modelPicker"),
+        cards: $("cardList"),
+        step: $("stepButton"),
+        send: $("sendButton"),
+        auto: $("autoButton"),
+        status: $("composerStatus"),
+      };
+      function apiHeaders() {
+        return { "content-type": "application/json", ...window.HarvisRuntime.bearerHeaders(els.token) };
+      }
+      function scrubRuntime(value) {
+        return window.HarvisRuntime.scrub(value, runtimeRoot);
+      }
+      function saveInputs() {
+        // Credential is intentionally page-memory only.
+      }
+      function root() {
+        const value = runtimeRoot;
+        if (!value) throw new Error("Workspace root is required.");
+        return value;
+      }
+      function escapeHtml(value) {
+        return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+      }
+      function renderFilters() {
+        const counts = new Map(messages.map((message) => [message.agent_id || message.alias || message.agent, 0]));
+        for (const message of messages) counts.set(message.agent_id || message.alias || message.agent, (counts.get(message.agent_id || message.alias || message.agent) || 0) + 1);
+        const agents = [{ id: "all", name: "All agents", role: "room", initial: "A", count: messages.length, color: "#111827", status: "live" }].concat(modelOptions.map((model) => ({
+          id: model.id,
+          name: model.agent,
+          role: model.role,
+          initial: model.initial,
+          count: counts.get(model.id) || 0,
+          color: model.color,
+          status: selectedModel.id === model.id ? "selected" : "ready",
+        })));
+        els.filter.innerHTML = "";
+        for (const agent of agents) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `filter-row ${activeAgent === agent.id ? "active" : ""}`;
+          button.innerHTML = `<span class="avatar" style="color:${agent.color}">${agent.initial}</span><span><strong>${agent.name}</strong><br><span class="muted">${agent.role}</span></span><small><span class="agent-status">${agent.status}</span><br>${agent.count}</small>`;
+          button.onclick = () => {
+            activeAgent = agent.id;
+            const model = modelOptions.find((item) => item.id === agent.id);
+            if (model) selectedModel = model;
+            render();
+          };
+          els.filter.append(button);
+        }
+      }
+      function renderMessages() {
+        const query = els.search.value.trim().toLowerCase();
+        els.list.innerHTML = "";
+        for (const message of messages) {
+          const messageAgentKey = message.agent_id || message.alias || message.agent;
+          const haystack = [message.agent, message.agent_id, message.alias, message.role, message.topic, message.event_id, message.question_id, message.reply_to_event_id, message.reply_to_agent_id, ...(message.tags || []), message.content].join(" ").toLowerCase();
+          if ((activeAgent !== "all" && activeAgent !== messageAgentKey) || (query && !haystack.includes(query))) continue;
+          const article = document.createElement("article");
+          article.className = "message";
+          article.style.setProperty("--agent-color", message.color);
+          article.innerHTML = `
+            <div class="message-avatar">${message.initial}</div>
+            <div>
+              <div class="message-meta">
+                <span class="agent-name">${message.agent}</span>
+                <span class="time">${message.time || ""}</span>
+                <span class="tag topic">${message.topic || ""}</span>
+                ${message.agent_id ? `<span class="tag">${escapeHtml(message.agent_id)}</span>` : ""}
+                ${message.event_id ? `<span class="tag">${escapeHtml(message.event_id)}</span>` : ""}
+                ${message.event_kind ? `<span class="tag kind">${escapeHtml(message.event_kind)}</span>` : ""}
+                ${message.question_id ? `<span class="tag">${escapeHtml(message.question_id)}</span>` : ""}
+                ${message.reply_to_agent_id ? `<span class="tag">reply:${escapeHtml(message.reply_to_agent_id)}</span>` : ""}
+              ${(message.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}
+              </div>
+              <div class="bubble">
+                <div class="bubble-body">${escapeHtml(message.content).replaceAll("\\n", "<br>")}</div>
+                ${message.note ? `<div class="bubble-note">${escapeHtml(message.note)}</div>` : ""}
+                ${message.route_reason ? `<div class="bubble-note">${escapeHtml(message.route_reason)}</div>` : ""}
+              </div>
+            </div>`;
+          els.list.append(article);
+        }
+      }
+      function renderPicker() {
+        els.picker.innerHTML = "";
+        for (const model of modelOptions) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `model-option ${selectedModel.id === model.id ? "active" : ""}`;
+          button.innerHTML = `<span class="avatar" style="color:${model.color}">${model.initial}</span><span><strong>${model.id}</strong> ${model.agent}</span><small>${model.description}</small>`;
+          button.onclick = () => selectModel(model);
+          els.picker.append(button);
+        }
+      }
+      function renderCards() {
+        els.cards.innerHTML = "";
+        const source = cards.slice(-12).reverse();
+        if (!source.length) {
+          const empty = document.createElement("div");
+          empty.className = "room-card";
+          empty.innerHTML = "<strong>No cards yet</strong><p>Step, auto talk, decisions, handoffs, and evidence will appear here.</p>";
+          els.cards.append(empty);
+          return;
+        }
+        for (const card of source) {
+          const item = document.createElement("div");
+          item.className = "room-card";
+          item.innerHTML = `<strong>${escapeHtml(card.title || card.kind || "card")}</strong><p>${escapeHtml(card.text || "")}</p><p>${escapeHtml(card.meta || "")}</p>`;
+          els.cards.append(item);
+        }
+      }
+      function render() {
+        renderFilters();
+        renderMessages();
+        renderPicker();
+        renderCards();
+      }
+      function selectModel(model) {
+        selectedModel = model;
+        els.picker.classList.remove("open");
+        const mention = currentMention();
+        if (mention) {
+          els.input.value = `${els.input.value.slice(0, mention.start)}@${model.id} ${els.input.value.slice(mention.end)}`;
+        } else {
+          els.input.value = `${els.input.value.trimEnd()} @${model.id} `;
+        }
+        els.status.textContent = `Selected ${model.id}`;
+        els.input.focus();
+        renderPicker();
+      }
+      function visiblePrompt(value) {
+        let clean = value;
+        for (const model of modelOptions) {
+          clean = clean.replace(new RegExp(`@${escapeRegExp(model.id)}\\b`, "g"), " ");
+          clean = clean.replace(new RegExp(`@${escapeRegExp(model.agent)}\\b`, "g"), " ");
+        }
+        return clean.trim();
+      }
+      function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      }
+      function currentMention() {
+        const cursor = els.input.selectionStart ?? els.input.value.length;
+        const before = els.input.value.slice(0, cursor);
+        const at = before.lastIndexOf("@");
+        if (at < 0) return null;
+        const token = before.slice(at + 1);
+        if (/[\s\u3000]/.test(token) || token.length > 32) return null;
+        return { start: at, end: cursor, query: token.toLowerCase() };
+      }
+      function append(message) {
+        messages.push(message);
+        collectCardsFromMessage(message);
+        activeAgent = "all";
+        render();
+        els.list.scrollTop = els.list.scrollHeight;
+      }
+      function collectCardsFromMessage(message) {
+        if (message.event_kind === "decision_record" || message.event_kind === "handoff_note") {
+          cards.push({ kind: message.event_kind, title: message.event_kind, text: message.content, meta: message.event_id || "" });
+        }
+        if (message.route_reason) {
+          cards.push({ kind: "evidence", title: "Route reason", text: message.route_reason, meta: message.question_id || message.event_id || "" });
+        }
+        if (message.reply_to_event_id || message.reply_to_agent_id) {
+          cards.push({ kind: "lineage", title: "Reply lineage", text: `reply to ${message.reply_to_agent_id || "event"} ${message.reply_to_event_id || ""}`, meta: message.question_id || "" });
+        }
+      }
+      function setBusy(value) {
+        isBusy = value;
+        els.send.disabled = value;
+        els.auto.disabled = value;
+        els.step.disabled = value;
+      }
+      async function sendMessage(event) {
+        event.preventDefault();
+        if (isBusy) return;
+        saveInputs();
+        const prompt = visiblePrompt(els.input.value.trim());
+        if (!prompt) return void (els.status.textContent = "Type a message first.");
+        const now = new Date().toISOString().slice(0, 16).replace("T", " ");
+        const rawPrompt = els.input.value.trim();
+        append({ agent: "you", agent_id: "human", alias: "user", role: "user", event_kind: "agent_message", initial: "Y", color: "#111827", time: now, topic: currentTopicId || "local", tags: ["local_user_message"], content: prompt });
+        setBusy(true);
+        els.input.value = "";
+        els.status.textContent = `Sending to ${selectedModel.id}...`;
+        try {
+          const response = await fetch("/agent-room/send", {
+            method: "POST",
+            headers: apiHeaders(),
+            body: JSON.stringify({ root: root(), model_alias: selectedModel.id, prompt, raw_prompt: rawPrompt, topic_id: currentTopicId || undefined }),
+          });
+          const payload = scrubRuntime(await response.json());
+          if (!payload.ok) throw new Error(payload.error?.message || "Request failed");
+          currentTopicId = payload.data.topic_id;
+          const routeReason = payload.data.route?.reason ? `Host route: ${payload.data.route.reason}` : "";
+          append({ ...payload.data.message, route_reason: routeReason });
+          els.status.textContent = `${selectedModel.id} replied.`;
+        } catch (error) {
+          els.status.textContent = error.message || String(error);
+        } finally {
+          setBusy(false);
+        }
+      }
+      async function autoTalk() {
+        if (isBusy) return;
+        saveInputs();
+        const seed = visiblePrompt(els.input.value.trim()) || "围绕 H.A.R.V.I.S. 的多智能体圆桌对话系统，自主讨论下一步。";
+        append({ agent: "roundtable-topic", agent_id: "harvis", alias: "topic", role: "system", event_kind: "status_change", initial: "T", color: "#111827", time: new Date().toISOString().slice(0, 16).replace("T", " "), topic: currentTopicId || "local", tags: ["auto_roundtable_seed"], note: "Auto roundtable started", content: seed });
+        setBusy(true);
+        els.input.value = "";
+        els.status.textContent = "Auto roundtable running...";
+        try {
+          const response = await fetch("/agent-room/autochat", {
+            method: "POST",
+            headers: apiHeaders(),
+            body: JSON.stringify({ root: root(), seed, rounds: 2, topic_id: currentTopicId || undefined }),
+          });
+          const payload = scrubRuntime(await response.json());
+          if (!payload.ok) throw new Error(payload.error?.message || "Request failed");
+          currentTopicId = payload.data.topic_id;
+          for (const message of payload.data.messages) append(message);
+          if (payload.data.decision_record && payload.data.decision_record.event_id) {
+            append(eventCard(payload.data.decision_record));
+          }
+          const status = payload.data.status === "partial" ? "partial" : "complete";
+          els.status.textContent = `Auto roundtable ${status}: ${payload.data.turns} turns.`;
+        } catch (error) {
+          els.status.textContent = error.message || String(error);
+        } finally {
+          setBusy(false);
+        }
+      }
+      async function hostStep() {
+        if (isBusy) return;
+        saveInputs();
+        const rawPrompt = els.input.value.trim();
+        const prompt = visiblePrompt(rawPrompt) || "请 H.A.R.V.I.S. 主持人推进下一步：追问、反驳、收敛或准备交接。";
+        setBusy(true);
+        els.status.textContent = "Host step running...";
+        try {
+          const last = [...messages].reverse().find((message) => message.event_id);
+          const response = await fetch("/agent-room/step", {
+            method: "POST",
+            headers: apiHeaders(),
+            body: JSON.stringify({
+              root: root(),
+              prompt,
+              raw_prompt: rawPrompt || prompt,
+              model_alias: selectedModel.id,
+              topic_id: currentTopicId || undefined,
+              reply_to_event_id: last?.event_id,
+              reply_to_agent_id: last?.agent_id,
+              reply_to_question_id: last?.question_id,
+              dry_run: false,
+            }),
+          });
+          const payload = scrubRuntime(await response.json());
+          if (!payload.ok) throw new Error(payload.error?.message || "Request failed");
+          currentTopicId = payload.data.topic_id;
+          append(eventCard(payload.data.host_event));
+          if (payload.data.message && payload.data.message.id) append(payload.data.message);
+          if (payload.data.blocked_event && payload.data.blocked_event.event_id) append(eventCard(payload.data.blocked_event));
+          if (payload.data.cards?.blocked && payload.data.cards.blocked.event_id) {
+            cards.push({ kind: "blocked", title: "Blocked", text: payload.data.cards.blocked.content || "", meta: payload.data.question_id });
+          }
+          if (payload.data.cards?.evidence) {
+            for (const evidence of payload.data.cards.evidence) cards.push({ kind: evidence.kind, title: "Evidence", text: evidence.text, meta: payload.data.question_id });
+          }
+          els.status.textContent = `Host step ${payload.data.status}: ${payload.data.question_id}`;
+        } catch (error) {
+          els.status.textContent = error.message || String(error);
+        } finally {
+          setBusy(false);
+        }
+      }
+      async function loadProviderModels() {
+        try {
+          if (!runtimeRoot) return;
+          const response = await fetch(`/agent-room/live?root=${encodeURIComponent(root())}&limit=1`, {
+            headers: window.HarvisRuntime.bearerHeaders(els.token),
+          });
+          const payload = scrubRuntime(await response.json());
+          if (!payload.ok) throw new Error(payload.error?.message || "Provider route request failed.");
+          if (!payload.data?.providers?.models?.length) {
+            els.status.textContent = "Runtime connected. No provider routes advertised.";
+            return;
+          }
+          modelOptions = payload.data.providers.models.map((model, index) => ({
+            id: model.alias,
+            agent: model.agent || model.model || model.alias,
+            role: model.role || "participant",
+            initial: (model.alias || "?").slice(0, 1).toUpperCase(),
+            color: palette(index),
+            description: `${model.provider} · ${model.model}`,
+          }));
+          if (!modelOptions.some((model) => model.id === selectedModel.id)) selectedModel = modelOptions[0];
+          els.status.textContent = `Loaded ${modelOptions.length} provider routes.`;
+          renderPicker();
+        } catch (error) {
+          els.status.textContent = `Provider route refresh skipped: ${error.message || error}`;
+        }
+      }
+      function palette(index) {
+        return ["#4f6fd8", "#2d8f6f", "#9a5bd7", "#c77d16", "#0f8aa0", "#8f5f38", "#b94a6a", "#52616f"][index % 8];
+      }
+      function eventCard(event) {
+        return {
+          id: event.event_id,
+          event_id: event.event_id,
+          agent: event.agent_id === "harvis" ? "H.A.R.V.I.S." : event.agent_id,
+          agent_id: event.agent_id,
+          alias: event.agent_id,
+          role: event.role || "host",
+          event_kind: event.event_kind || event.event_type,
+          initial: (event.agent_id || "H").slice(0, 1).toUpperCase(),
+          color: "#111827",
+          time: (event.created_at || "").slice(0, 16).replace("T", " "),
+          topic: event.topic_id,
+          question_id: event.metadata?.question_id || "",
+          reply_to_event_id: event.metadata?.reply_to_event_id || "",
+          reply_to_agent_id: event.metadata?.reply_to_agent_id || "",
+          reply_to_question_id: event.metadata?.reply_to_question_id || "",
+          route_reason: event.metadata?.route_reason || event.metadata?.reason || "",
+          tags: [event.event_type || "event"],
+          note: "Decision / handoff-style Agent Room event",
+          content: event.content || event.content_text || "",
+        };
+      }
+      els.input.addEventListener("input", () => {
+        const mention = currentMention();
+        if (!mention) {
+          els.picker.classList.remove("open");
+          return;
+        }
+        els.picker.classList.add("open");
+        const query = mention.query;
+        const match = modelOptions.find((model) => model.id.startsWith(query) || model.agent.includes(query));
+        if (match) selectedModel = match;
+        renderPicker();
+      });
+      els.input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") els.picker.classList.remove("open");
+        if (event.key === "ArrowDown" && els.picker.classList.contains("open")) {
+          event.preventDefault();
+          const currentIndex = modelOptions.findIndex((model) => model.id === selectedModel.id);
+          selectedModel = modelOptions[(currentIndex + 1) % modelOptions.length];
+          renderPicker();
+        }
+        if (event.key === "ArrowUp" && els.picker.classList.contains("open")) {
+          event.preventDefault();
+          const currentIndex = modelOptions.findIndex((model) => model.id === selectedModel.id);
+          selectedModel = modelOptions[(currentIndex - 1 + modelOptions.length) % modelOptions.length];
+          renderPicker();
+        }
+        if (event.key === "Tab" && els.picker.classList.contains("open")) {
+          event.preventDefault();
+          selectModel(selectedModel);
+        }
+      });
+      els.form.addEventListener("submit", sendMessage);
+      els.step.addEventListener("click", hostStep);
+      els.auto.addEventListener("click", autoTalk);
+      els.search.addEventListener("input", renderMessages);
+      els.token.addEventListener("change", loadProviderModels);
+      render();
+      window.HarvisRuntime.bootstrap()
+        .then((bootstrap) => {
+          runtimeRoot = bootstrap.workspaceRoot;
+          window.HarvisRuntime.applyWorkspaceLabel(els.root, bootstrap.workspaceLabel);
+          return loadProviderModels();
+        })
+        .catch((error) => {
+          els.status.textContent = error.message || "Runtime bootstrap unavailable.";
+        });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/hub-source.schema.json",
+  "title": "H.A.R.V.I.S. Hub Source",
+  "type": "object",
+  "required": ["redacted"],
+  "additionalProperties": true,
+  "properties": {
+    "redacted": {
+      "type": "boolean",
+      "const": true
+    },
+    "includesLocalAbsolutePaths": {
+      "type": "boolean",
+      "const": false
+    },
+    "source_id": {
+      "type": "string"
+    },
+    "hub": {
+      "type": "string"
+    },
+    "wiki": {
+      "type": ["string", "object"]
+    },
+    "items": {
+      "type": "array"
+    }
+  }
+}

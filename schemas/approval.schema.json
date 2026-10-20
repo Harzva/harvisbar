@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/approval.schema.json",
+  "title": "H.A.R.V.I.S. Approval Item",
+  "type": "object",
+  "required": [
+    "approval_version",
+    "approval_id",
+    "status",
+    "run_id",
+    "created_at",
+    "updated_at",
+    "risk",
+    "scope",
+    "action",
+    "safety"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "approval_version": {
+      "type": "string"
+    },
+    "approval_id": {
+      "type": "string",
+      "pattern": "^approval_[A-Za-z0-9T_-]+$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "approved", "denied", "cancelled"]
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[A-Za-z0-9_-]+$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "risk": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "action": {
+      "type": "object",
+      "required": ["type", "target", "reason"],
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "write_file",
+            "run_command",
+            "publish_projection",
+            "commit",
+            "push",
+            "deploy",
+            "delete",
+            "read_outside_allowlist",
+            "install_service",
+            "external_send",
+            "other"
+          ]
+        },
+        "target": {
+          "type": "object",
+          "required": ["kind", "display"],
+          "additionalProperties": true
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "decision": {
+      "type": ["object", "null"],
+      "additionalProperties": true
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "recordOnly",
+        "executesAction",
+        "includesSecrets",
+        "includesRawMemory",
+        "includesLocalAbsolutePaths"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "recordOnly": {
+          "type": "boolean",
+          "const": true
+        },
+        "executesAction": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesRawMemory": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesLocalAbsolutePaths": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    }
+  }
+}

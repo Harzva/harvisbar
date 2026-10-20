@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/notification.schema.json",
+  "title": "H.A.R.V.I.S. Notification Candidate",
+  "type": "object",
+  "required": [
+    "notification_version",
+    "notification_id",
+    "kind",
+    "status",
+    "created_at",
+    "title",
+    "body",
+    "source",
+    "dedupe_key",
+    "safety"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "notification_version": {
+      "type": "string"
+    },
+    "notification_id": {
+      "type": "string",
+      "pattern": "^notification_[A-Za-z0-9T_-]+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["blocked", "approval", "verified", "service_unhealthy"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["candidate", "shown", "dismissed"]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "title": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "dedupe_key": {
+      "type": "string"
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "allowedByPolicy",
+        "includesSecrets",
+        "includesRawMemory",
+        "includesLocalAbsolutePaths"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "allowedByPolicy": {
+          "type": "boolean",
+          "const": true
+        },
+        "includesSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesRawMemory": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesLocalAbsolutePaths": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    }
+  }
+}

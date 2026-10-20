@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/ports-status.schema.json",
+  "title": "H.A.R.V.I.S. Ports Status",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "safeForHarvisBar",
+    "generatedAt",
+    "status",
+    "summary",
+    "counts",
+    "items",
+    "management",
+    "safety"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "harvis.ports-status.v0"
+    },
+    "safeForHarvisBar": {
+      "type": "boolean",
+      "const": true
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ready", "needs_review"]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "required": [
+        "listeners",
+        "known",
+        "important",
+        "importantRunning",
+        "importantAutostartReady"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "listeners": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "known": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "important": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "importantRunning": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "importantAutostartReady": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "port",
+          "function",
+          "known",
+          "important",
+          "showInHarvisBar",
+          "lifecycle",
+          "listening",
+          "process",
+          "autostart",
+          "safeForHarvisBar"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "host": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "function": {
+            "type": "string"
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "important": {
+            "type": "boolean"
+          },
+          "showInHarvisBar": {
+            "type": "boolean"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": ["managed", "on-demand", "external"]
+          },
+          "listening": {
+            "type": "boolean"
+          },
+          "process": {
+            "type": "string"
+          },
+          "pid": {
+            "type": ["integer", "null"]
+          },
+          "uptime": {
+            "type": ["string", "null"]
+          },
+          "autostart": {
+            "type": "object",
+            "required": ["loaded", "running", "plistPresent"],
+            "additionalProperties": true,
+            "properties": {
+              "label": {
+                "type": ["string", "null"]
+              },
+              "loaded": {
+                "type": "boolean"
+              },
+              "running": {
+                "type": "boolean"
+              },
+              "plistPresent": {
+                "type": "boolean"
+              }
+            }
+          },
+          "safeForHarvisBar": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      }
+    },
+    "management": {
+      "type": "object",
+      "required": ["autostartPolicy", "canManageUnknownPorts"],
+      "additionalProperties": true,
+      "properties": {
+        "autostartPolicy": {
+          "type": "string"
+        },
+        "canManageUnknownPorts": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": ["redacted", "includesSecrets", "includesLocalAbsolutePaths", "networkExposure"],
+      "additionalProperties": true,
+      "properties": {
+        "redacted": {
+          "type": "boolean",
+          "const": true
+        },
+        "includesSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesLocalAbsolutePaths": {
+          "type": "boolean",
+          "const": false
+        },
+        "networkExposure": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema_version": "harvis.router_eval.v1",
+  "description": "Small local-needs router evaluation set for H.A.R.V.I.S. transport normalization.",
+  "cases": [
+    {
+      "id": "zh_task_repo_check",
+      "transport": "wechat",
+      "text": "任务：找到 just-ddl 仓库并检查失败原因，不要执行",
+      "expected_intent": "task_enqueue",
+      "expected_owner_slot_id": "planner"
+    },
+    {
+      "id": "english_task_webpage",
+      "transport": "feishu",
+      "text": "task write a small web page for the local status dashboard, do not publish",
+      "expected_intent": "task_enqueue",
+      "expected_owner_slot_id": "planner"
+    },
+    {
+      "id": "upper_task_debug",
+      "transport": "webview",
+      "text": "TASK debug the failing Harvis Studio task cards, do not commit",
+      "expected_intent": "task_enqueue",
+      "expected_owner_slot_id": "planner"
+    },
+    {
+      "id": "fsrealtask_xhs",
+      "transport": "feishu",
+      "text": "FSREALTASK202606280112 准备小红书发布前检查，不要发布",
+      "expected_intent": "task_enqueue",
+      "expected_owner_slot_id": "planner"
+    },
+    {
+      "id": "repo_space_lookup",
+      "transport": "wechat",
+      "text": "repo just-ddl",
+      "expected_intent": "repo_lookup",
+      "expected_owner_slot_id": "knowledge"
+    },
+    {
+      "id": "compact_justddl_lookup",
+      "transport": "feishu",
+      "text": "查 justddl",
+      "expected_intent": "repo_lookup",
+      "expected_owner_slot_id": "knowledge"
+    },
+    {
+      "id": "file_search_task",
+      "transport": "webview",
+      "text": "task 搜寻文件 README.md 在本地哪里，不要修改",
+      "expected_intent": "task_enqueue",
+      "expected_owner_slot_id": "planner"
+    }
+  ]
+}

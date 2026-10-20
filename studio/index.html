@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>H.A.R.V.I.S. Console</title>
+    <link rel="icon" href="/studio/assets/harvis-app-icon.png" />
+    <link rel="stylesheet" href="/studio/styles.css" />
+    <link rel="stylesheet" href="/ui/tokens.css" />
+    <link rel="stylesheet" href="/ui/operator.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar" aria-label="Navigation">
+        <div class="brand">
+          <div class="brand-mark">H</div>
+          <div>
+            <strong>H.A.R.V.I.S.</strong>
+            <span>Digital-Me</span>
+          </div>
+        </div>
+        <nav class="nav-list" aria-label="Operator console">
+          <button class="nav-item active" type="button" data-view="dashboard" aria-current="page">Overview</button>
+          <button class="nav-item" type="button" data-view="work">Work</button>
+          <button class="nav-item" type="button" data-view="review">Decisions</button>
+          <button class="nav-item" type="button" data-view="graph">Knowledge</button>
+          <button class="nav-item" type="button" data-view="copy">Persona</button>
+          <button class="nav-item" type="button" data-view="bridge">Integrations</button>
+          <button class="nav-item" type="button" data-view="settings">Settings</button>
+        </nav>
+        <section class="side-card">
+          <span>Resident</span>
+          <strong id="sideResidentState">checking</strong>
+          <small id="sideResidentMeta">localhost</small>
+        </section>
+        <section class="side-visual">
+          <img src="/studio/assets/harvis-core-male.png" alt="H.A.R.V.I.S. persona system visual" />
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div class="title-group">
+            <span class="eyebrow">Local Agent Runtime</span>
+            <h1 id="viewTitle">Overview</h1>
+          </div>
+          <div class="runtime-strip" aria-label="Runtime status">
+            <span class="status-pill" id="runtimeState">idle</span>
+            <span id="permissionState">permission unknown</span>
+            <span id="reviewState">0 pending</span>
+          </div>
+        </header>
+
+        <section class="connection-bar" aria-label="Connection">
+          <label>
+            <span>Workspace</span>
+            <input id="rootInput" autocomplete="off" spellcheck="false" placeholder="Runtime workspace" readonly />
+          </label>
+          <label>
+            <span>Session token</span>
+            <input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="Memory only; never stored" aria-label="Session bearer token, kept only in page memory" />
+          </label>
+          <div class="action-row">
+            <button id="refreshButton" type="button">Refresh</button>
+            <button id="initButton" type="button">Initialize</button>
+            <a class="button-link" href="/panel/">Panel</a>
+          </div>
+        </section>
+
+        <section class="view active" id="dashboardView" data-title="Overview">
+          <section class="op-command-deck" aria-label="Operator overview" data-ui-state="loading">
+            <div class="op-signal-grid" aria-label="High signal runtime summary">
+              <article class="op-signal" id="opHealthSignal" data-state="reading">
+                <span class="op-signal-label">Health</span>
+                <strong id="opHealthValue">Checking</strong>
+                <p id="opHealthDetail">Reading localhost runtime.</p>
+              </article>
+              <article class="op-signal" id="opActiveSignal" data-state="idle">
+                <span class="op-signal-label">Active run</span>
+                <strong id="opActiveValue">None</strong>
+                <p id="opActiveDetail">No approved action is running.</p>
+              </article>
+              <article class="op-signal" id="opBlockedSignal" data-state="idle">
+                <span class="op-signal-label">Blocked</span>
+                <strong id="opBlockedValue">0 items</strong>
+                <p id="opBlockedDetail">No work is stopped.</p>
+              </article>
+              <article class="op-signal" id="opApprovalSignal" data-state="idle">
+                <span class="op-signal-label">Approvals</span>
+                <strong id="opApprovalValue">0 pending</strong>
+                <p id="opApprovalDetail">No decision is waiting.</p>
+              </article>
+              <article class="op-signal" id="opLarkSignal" data-state="reading">
+                <span class="op-signal-label">Lark</span>
+                <strong id="opLarkValue">Checking</strong>
+                <p id="opLarkDetail">Reading bridge evidence.</p>
+              </article>
+            </div>
+
+            <div class="op-primary-grid">
+              <article class="op-next-action" id="opNextAction" data-state="loading">
+                <span class="op-section-kicker">Next safe action</span>
+                <h2 id="opNextTitle">Wait for runtime evidence</h2>
+                <p id="opNextDetail">Actions remain disabled until health and approval state are known.</p>
+                <div class="op-action-row">
+                  <button id="opNextButton" type="button" disabled>Open evidence</button>
+                  <span class="op-action-impact" id="opNextImpact">Read-only · no state change</span>
+                </div>
+              </article>
+
+              <article class="op-lineage-card" aria-labelledby="opLineageTitle">
+                <span class="op-section-kicker">Line of authority</span>
+                <h2 id="opLineageTitle">Current work lineage</h2>
+                <div class="op-lineage" id="opOverviewLineage">
+                  <div class="op-lineage-step" data-stage="task" data-state="idle"><strong>Task</strong><small>not linked</small></div>
+                  <div class="op-lineage-step" data-stage="approval" data-state="idle"><strong>Approval</strong><small>not linked</small></div>
+                  <div class="op-lineage-step" data-stage="handoff" data-state="idle"><strong>Handoff</strong><small>not linked</small></div>
+                  <div class="op-lineage-step" data-stage="run" data-state="idle"><strong>Run</strong><small>not linked</small></div>
+                  <div class="op-lineage-step" data-stage="review" data-state="idle"><strong>Review</strong><small>not linked</small></div>
+                </div>
+              </article>
+            </div>
+
+            <article class="op-state-scene" data-op-state-scene data-ui-state="fixture" hidden aria-live="polite">
+              <span class="op-section-kicker">State fixture</span>
+              <h2 data-op-state-title>State</h2>
+              <p data-op-state-detail></p>
+              <dl class="op-state-evidence">
+                <div><dt>Reason</dt><dd data-op-state-reason>—</dd></div>
+                <div><dt>Owner</dt><dd data-op-state-owner>—</dd></div>
+                <div><dt>Scope / risk</dt><dd data-op-state-scope>—</dd></div>
+                <div><dt>Evidence</dt><dd data-op-state-evidence>—</dd></div>
+              </dl>
+              <p class="op-state-note"><strong>Next:</strong> <span data-op-state-next></span></p>
+              <div class="op-action-row" data-op-approval-actions hidden>
+                <button type="button" data-op-fixture-action="approve">Approve</button>
+                <button type="button" class="soft-action" data-op-fixture-action="reject">Reject</button>
+                <button type="button" class="soft-action" data-op-fixture-action="defer">Defer</button>
+              </div>
+            </article>
+          </section>
+
+          <details class="dashboard-detail">
+            <summary>Operational detail</summary>
+            <div class="dashboard-grid">
+            <article class="cockpit-panel" aria-label="H.A.R.V.I.S. cockpit">
+              <div class="cockpit-identity">
+                <span class="eyebrow">Resident Cockpit</span>
+                <h2 id="cockpitHeadline">H.A.R.V.I.S. standing by</h2>
+                <p id="cockpitSummary">Waiting for the local runtime contract.</p>
+              </div>
+              <div class="presence-core" id="cockpitPresence" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+                <div class="cockpit-scan"></div>
+                <div class="cockpit-wave">
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                </div>
+                <img src="/studio/assets/harvis-core-male.png" alt="" />
+              </div>
+              <div class="signal-board" aria-label="Runtime signals">
+                <div>
+                  <span>Online</span>
+                  <strong id="cockpitOnline">checking</strong>
+                </div>
+                <div>
+                  <span>Permission</span>
+                  <strong id="cockpitPermission">unknown</strong>
+                </div>
+                <div>
+                  <span>Review</span>
+                  <strong id="cockpitReview">0 pending</strong>
+                </div>
+                <div>
+                  <span>Graph</span>
+                  <strong id="cockpitGraph">not loaded</strong>
+                </div>
+              </div>
+            </article>
+
+            <article class="graph-dock-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Knowledge Graph</h2>
+                  <span id="dashboardGraphMode">Workbench ready</span>
+                </div>
+                <div class="graph-dock-actions">
+                  <button class="soft-action" type="button" data-view-jump="graph" data-graph-mode="workbench">Workbench</button>
+                  <button type="button" data-view-jump="graph" data-graph-mode="galaxy">Galaxy</button>
+                </div>
+              </div>
+              <div class="graph-dock-body">
+                <div class="graph-dock-stage" id="dashboardGraphStage">
+                  <svg id="dashboardGraphMini" viewBox="0 0 320 180" role="img" aria-label="Dashboard knowledge graph preview"></svg>
+                </div>
+                <div class="graph-dock-copy">
+                  <div class="graph-dock-source" id="dashboardGraphSource">No vault scanned.</div>
+                  <div class="graph-dock-tags" id="dashboardGraphTags"></div>
+                  <div id="dashboardGraphFocus" class="stack empty">No graph focus.</div>
+                </div>
+              </div>
+            </article>
+
+            <article class="first-run-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>First Run</h2>
+                  <span id="firstRunSummary">0/5 ready</span>
+                </div>
+                <div class="graph-dock-actions">
+                  <button class="soft-action" type="button" data-view-jump="settings">Settings</button>
+                  <button type="button" id="firstRunRefreshButton">Check</button>
+                </div>
+              </div>
+              <div class="first-run-list" id="firstRunList"></div>
+            </article>
+
+            <article class="hero-panel">
+              <div class="hero-copy">
+                <span class="eyebrow">Active Twin</span>
+                <h2 id="activeTwinName">No twin selected</h2>
+                <p id="activeTwinMeta">Memory and persona binding pending.</p>
+                <div class="hero-tags">
+                  <span id="activePersonaTag">persona: -</span>
+                  <span id="activeVaultTag">vault: -</span>
+                  <span id="activePermissionTag">tools: -</span>
+                </div>
+              </div>
+              <div class="avatar-frame">
+                <img src="/studio/assets/harvis-core-male.png" alt="Active H.A.R.V.I.S. twin" />
+              </div>
+            </article>
+
+            <article class="health-panel">
+              <div class="panel-head">
+                <h2>System Health</h2>
+                <span id="healthStamp">-</span>
+              </div>
+              <div class="health-list" id="healthList"></div>
+            </article>
+
+            <article class="ports-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Ports</h2>
+                  <span id="dashboardPortsMetric">0 listeners</span>
+                </div>
+                <button class="soft-action" type="button" data-view-jump="ports">Manage</button>
+              </div>
+              <div id="dashboardPortsList" class="stack empty">No port data.</div>
+            </article>
+
+            <article class="harness-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Harness Pool</h2>
+                  <span id="harnessPoolMetric">0 ready</span>
+                </div>
+                <button id="harnessSmokeButton" class="soft-action" type="button">Check</button>
+              </div>
+              <div class="workbench-grid" aria-label="Harness pool detail">
+                <section>
+                  <h3>Core Harnesses</h3>
+                  <div id="harnessPoolList" class="stack empty">No harness health.</div>
+                </section>
+                <section>
+                  <h3>Runtime Presets</h3>
+                  <div id="harnessPresetList" class="stack empty">No runtime presets.</div>
+                </section>
+                <section>
+                  <h3>Model Bindings</h3>
+                  <div id="harnessModelList" class="stack empty">No model bindings.</div>
+                </section>
+                <section>
+                  <h3>Policy</h3>
+                  <div id="harnessPolicyList" class="stack empty">No policy.</div>
+                </section>
+              </div>
+            </article>
+
+            <article class="queue-panel">
+              <div class="panel-head">
+                <h2>Pending Queue</h2>
+                <span id="queueCount">0</span>
+              </div>
+              <div id="pendingQueue" class="stack empty">No pending reviews.</div>
+            </article>
+
+            <article class="metric-grid">
+              <div>
+                <span>Personas</span>
+                <strong id="personaCount">0</strong>
+              </div>
+              <div>
+                <span>Vaults</span>
+                <strong id="vaultCount">0</strong>
+              </div>
+              <div>
+                <span>Runs</span>
+                <strong id="runCount">0</strong>
+              </div>
+              <div>
+                <span>Approvals</span>
+                <strong id="approvalCount">0</strong>
+              </div>
+            </article>
+
+            <article class="timeline-panel">
+              <div class="panel-head">
+                <h2>Recent Activity</h2>
+                <button class="soft-action" type="button" data-view-jump="studio">Open Studio</button>
+              </div>
+              <div id="recentRuns" class="stack empty">No runs.</div>
+            </article>
+
+            <article class="router-panel">
+              <div class="panel-head">
+                <h2>Harvis Router</h2>
+                <span id="routerMetric">0</span>
+              </div>
+              <div id="routerEvents" class="stack empty">No router events.</div>
+            </article>
+
+            <article class="agent-panel">
+              <div class="panel-head">
+                <h2>Agent Room</h2>
+                <button id="topicButton" class="soft-action" type="button">New Topic</button>
+              </div>
+              <div id="agentSummary" class="stack empty">No Agent Room events.</div>
+            </article>
+
+            <article class="workbench-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>GWT Workbench</h2>
+                  <span id="workbenchMetric">0 slots</span>
+                </div>
+                <span id="workbenchChair">chair: -</span>
+              </div>
+              <div id="workbenchSummary" class="stack empty">No workspace state.</div>
+              <div class="workbench-grid" aria-label="GWT workbench detail">
+                <section>
+                  <h3>Slots</h3>
+                  <div id="workbenchSlots" class="stack empty">No slots.</div>
+                </section>
+                <section>
+                  <h3>Open Tasks</h3>
+                  <div id="workbenchTasks" class="stack empty">No tasks.</div>
+                </section>
+                <section>
+                  <h3>Mailbox</h3>
+                  <div id="workbenchMailbox" class="stack empty">No unread mailbox.</div>
+                </section>
+                <section>
+                  <h3>Conversation Context</h3>
+                  <div id="workbenchConversations" class="stack empty">No conversation context.</div>
+                </section>
+                <section>
+                  <h3>Linked Context</h3>
+                  <div id="workbenchLinkedContext" class="stack empty">No linked context.</div>
+                </section>
+                <section>
+                  <h3>Chain Detail</h3>
+                  <div id="workbenchChainDetail" class="stack empty">No chain detail.</div>
+                </section>
+                <section>
+                  <h3>Codex Pin Board</h3>
+                  <div id="workbenchCodexPins" class="stack empty">No pinned threads.</div>
+                </section>
+                <section>
+                  <h3>Codex Threads</h3>
+                  <div id="workbenchCodexBindings" class="stack empty">No Codex thread bindings.</div>
+                </section>
+                <section>
+                  <h3>Run Timeline</h3>
+                  <div id="workbenchRunTimeline" class="stack empty">No run timeline.</div>
+                </section>
+                <section>
+                  <h3>Team Harness</h3>
+                  <div id="workbenchTeamHarness" class="stack empty">No Team Harness decisions.</div>
+                </section>
+                <section>
+                  <h3>Approvals</h3>
+                  <div id="workbenchApprovals" class="stack empty">No approvals.</div>
+                </section>
+                <section>
+                  <h3>Router Events</h3>
+                  <div id="workbenchRouterEvents" class="stack empty">No router events.</div>
+                </section>
+              </div>
+            </article>
+
+            <article class="handoff-panel">
+              <div class="panel-head">
+                <h2>Handoffs</h2>
+                <span id="handoffMetric">0</span>
+              </div>
+              <div id="handoffList" class="stack empty">No handoffs.</div>
+            </article>
+            </div>
+          </details>
+        </section>
+
+        <section class="view" id="workView" data-title="Work">
+          <div class="work-ledger-layout">
+            <section class="work-ledger-focus" aria-labelledby="workFocusTitle">
+              <span class="op-section-kicker">Current work</span>
+              <h2 id="workFocusTitle">Task to review lineage</h2>
+              <p id="opWorkSummary">No active lineage selected.</p>
+              <div class="op-lineage" id="opWorkLineage">
+                <div class="op-lineage-step" data-stage="task" data-state="idle"><strong>Task</strong><small>not linked</small></div>
+                <div class="op-lineage-step" data-stage="approval" data-state="idle"><strong>Approval</strong><small>not linked</small></div>
+                <div class="op-lineage-step" data-stage="handoff" data-state="idle"><strong>Handoff</strong><small>not linked</small></div>
+                <div class="op-lineage-step" data-stage="run" data-state="idle"><strong>Run</strong><small>not linked</small></div>
+                <div class="op-lineage-step" data-stage="review" data-state="idle"><strong>Review</strong><small>not linked</small></div>
+              </div>
+            </section>
+            <section class="work-ledger-queue" aria-labelledby="workQueueTitle">
+              <div class="panel-head">
+                <div><h2 id="workQueueTitle">Priority queue</h2><span id="opWorkQueueCount">0 visible</span></div>
+                <a class="button-link soft-action" href="/studio/roundtable/">Agent Room</a>
+              </div>
+              <div id="opWorkQueue" class="stack empty">No active work.</div>
+            </section>
+            <details class="work-diagnostics">
+              <summary>Advanced workbench and diagnostics</summary>
+              <div class="work-tool-links">
+                <button type="button" class="soft-action" data-view-jump="console">Agent console</button>
+                <button type="button" class="soft-action" data-view-jump="ports">Ports</button>
+                <button type="button" class="soft-action" data-view-jump="studio">Persona editor</button>
+                <button type="button" class="soft-action" data-view-jump="memory">Memory vault</button>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <section class="view" id="portsView" data-title="Ports">
+          <div class="ports-layout">
+            <aside class="ports-summary-panel">
+              <div class="panel-head">
+                <h2>Port Status</h2>
+                <span id="portImportantState">checking</span>
+              </div>
+              <p id="portSummary">No port scan yet.</p>
+              <div class="port-actions">
+                <button id="portRefreshButton" type="button">Refresh</button>
+                <a class="button-link" href="/studio/">Studio</a>
+                <a class="button-link soft-action" href="/presence/">Presence</a>
+              </div>
+            </aside>
+            <section class="ports-panel-wide">
+              <div class="panel-head">
+                <h2>Local Listeners</h2>
+                <span>known LaunchAgents only</span>
+              </div>
+              <div id="portList" class="port-list empty">No listening ports.</div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="studioView" data-title="Persona Studio">
+          <div class="persona-layout">
+            <aside class="persona-list-panel">
+              <div class="panel-head">
+                <h2>Persona Cards</h2>
+                <button id="personaButton" class="soft-action" type="button">New</button>
+              </div>
+              <div id="personaList" class="persona-list empty">No personas.</div>
+            </aside>
+
+            <section class="editor-panel">
+              <div class="panel-head">
+                <h2>Persona Editor</h2>
+                <span id="editorStatus">idle</span>
+              </div>
+              <div class="editor-visual">
+                <img src="/studio/assets/harvis-core-male.png" alt="Persona visual reference" />
+                <div>
+                  <label>
+                    <span>Display Name</span>
+                    <input id="personaNameInput" autocomplete="off" spellcheck="false" />
+                  </label>
+                  <label>
+                    <span>Visual Asset ID</span>
+                    <input id="visualAssetInput" autocomplete="off" spellcheck="false" />
+                  </label>
+                </div>
+              </div>
+
+              <div class="slider-grid">
+                <label>
+                  <span>Warmth <b id="warmthValue">0</b></span>
+                  <input id="warmthInput" type="range" min="0" max="10" />
+                </label>
+                <label>
+                  <span>Directness <b id="directnessValue">0</b></span>
+                  <input id="directnessInput" type="range" min="0" max="10" />
+                </label>
+                <label>
+                  <span>Humor <b id="humorValue">0</b></span>
+                  <input id="humorInput" type="range" min="0" max="10" />
+                </label>
+                <label>
+                  <span>Detail <b id="detailValue">0</b></span>
+                  <input id="detailInput" type="range" min="0" max="10" />
+                </label>
+                <label>
+                  <span>Encouragement <b id="encouragementValue">0</b></span>
+                  <input id="encouragementInput" type="range" min="0" max="10" />
+                </label>
+                <label>
+                  <span>Criticism <b id="criticismValue">0</b></span>
+                  <input id="criticismInput" type="range" min="0" max="10" />
+                </label>
+              </div>
+
+              <div class="decision-grid">
+                <label class="check-row">
+                  <input id="evidenceInput" type="checkbox" />
+                  <span>Evidence first</span>
+                </label>
+                <label class="check-row">
+                  <input id="challengeInput" type="checkbox" />
+                  <span>Challenge user</span>
+                </label>
+                <label class="check-row">
+                  <input id="verificationInput" type="checkbox" />
+                  <span>Prefer verification</span>
+                </label>
+                <label>
+                  <span>Risk Tolerance</span>
+                  <select id="riskInput">
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="rules-field">
+                <span>Behavior Rules</span>
+                <textarea id="rulesInput" spellcheck="false"></textarea>
+              </label>
+
+              <div class="editor-actions">
+                <button id="savePersonaButton" type="button">Save Persona</button>
+                <button id="copyButton" type="button">Create Copy-Me</button>
+                <button id="candidateButton" class="soft-action" type="button">Trait Candidate</button>
+              </div>
+            </section>
+
+            <aside class="test-panel">
+              <div class="panel-head">
+                <h2>Live Test Room</h2>
+                <button id="runTestButton" class="soft-action" type="button">Run</button>
+              </div>
+              <label>
+                <span>Prompt</span>
+                <textarea id="testPromptInput" spellcheck="false">How would you approach designing a personal productivity system?</textarea>
+              </label>
+              <div class="comparison">
+                <div>
+                  <span id="testPersonaName">Selected Persona</span>
+                  <p id="personaPreview">Select a persona.</p>
+                </div>
+                <div>
+                  <span>Default Me</span>
+                  <p id="defaultPreview">Run a test.</p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="copyView" data-title="Copy Me Builder">
+          <div class="builder-layout">
+            <aside class="builder-rail">
+              <div class="panel-head">
+                <h2>Copy Me Builder</h2>
+                <span id="builderStatus">draft</span>
+              </div>
+              <div class="step-list" id="builderSteps" aria-label="Copy Me Builder steps">
+                <button class="step-button active" type="button" data-builder-step="0"><span>01</span>Memory Vault</button>
+                <button class="step-button" type="button" data-builder-step="1"><span>02</span>Persona Template</button>
+                <button class="step-button" type="button" data-builder-step="2"><span>03</span>Appearance</button>
+                <button class="step-button" type="button" data-builder-step="3"><span>04</span>Behavior</button>
+                <button class="step-button" type="button" data-builder-step="4"><span>05</span>Permissions</button>
+                <button class="step-button" type="button" data-builder-step="5"><span>06</span>Create Twin</button>
+                <button class="step-button" type="button" data-builder-step="6"><span>07</span>Test Room</button>
+              </div>
+            </aside>
+
+            <section class="builder-panel">
+              <div class="panel-head">
+                <h2 id="builderStepTitle">Memory Vault</h2>
+                <span id="builderStepHint">Step 1 of 7</span>
+              </div>
+
+              <div class="builder-step active" data-builder-panel="0">
+                <label>
+                  <span>Memory Vault</span>
+                  <select id="builderVaultSelect"></select>
+                </label>
+                <p id="builderVaultMeta">Select the memory boundary this Copy-Me can read.</p>
+              </div>
+
+              <div class="builder-step" data-builder-panel="1">
+                <label>
+                  <span>Persona Template</span>
+                  <select id="builderPersonaSelect"></select>
+                </label>
+                <p id="builderPersonaMeta">Pick the behavior template for this twin.</p>
+              </div>
+
+              <div class="builder-step" data-builder-panel="2">
+                <div class="editor-visual">
+                  <img src="/studio/assets/harvis-core-female.png" alt="Copy-Me appearance reference" />
+                  <div>
+                    <label>
+                      <span>Visual Asset ID</span>
+                      <input id="builderVisualInput" autocomplete="off" spellcheck="false" />
+                    </label>
+                    <label>
+                      <span>Appearance Mode</span>
+                      <select id="builderAppearanceSelect">
+                        <option value="persona-system">persona-system</option>
+                        <option value="calm-dashboard">calm-dashboard</option>
+                        <option value="operator-panel">operator-panel</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="builder-step" data-builder-panel="3">
+                <label>
+                  <span>Behavior Brief</span>
+                  <textarea id="builderBehaviorInput" spellcheck="false"></textarea>
+                </label>
+                <p id="builderBehaviorMeta">This preview is stored in the UI draft; persona rules remain review-gated.</p>
+              </div>
+
+              <div class="builder-step" data-builder-panel="4">
+                <div class="permission-grid">
+                  <label class="check-row">
+                    <input id="builderPermRead" type="checkbox" checked />
+                    <span>Read selected memory vault</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="builderPermWriteCandidate" type="checkbox" checked />
+                    <span>Write candidate memory only</span>
+                  </label>
+                  <label class="check-row">
+                    <input id="builderPermWriteAccepted" type="checkbox" />
+                    <span>Write accepted memory</span>
+                  </label>
+                  <label>
+                    <span>Tool Permission</span>
+                    <select id="builderRunToolsSelect">
+                      <option value="approval_required">approval_required</option>
+                      <option value="read_only">read_only</option>
+                      <option value="disabled">disabled</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="builder-step" data-builder-panel="5">
+                <label>
+                  <span>Twin Name</span>
+                  <input id="builderTwinNameInput" autocomplete="off" spellcheck="false" />
+                </label>
+                <div class="editor-actions">
+                  <button id="builderCreateButton" type="button">Create Twin</button>
+                </div>
+                <p id="builderCreateResult">Ready to create a review-gated Copy-Me twin.</p>
+              </div>
+
+              <div class="builder-step" data-builder-panel="6">
+                <label>
+                  <span>Test Prompt</span>
+                  <textarea id="builderTestPromptInput" spellcheck="false">What should you do first when the workspace looks risky?</textarea>
+                </label>
+                <div class="editor-actions">
+                  <button id="builderTestButton" class="soft-action" type="button">Run Local Test</button>
+                </div>
+                <p id="builderTestPreview">Create or select a draft to test the Copy-Me behavior.</p>
+              </div>
+
+              <div class="builder-actions">
+                <button id="builderPrevButton" class="soft-action" type="button">Previous</button>
+                <button id="builderNextButton" type="button">Next</button>
+              </div>
+            </section>
+
+            <aside class="builder-preview">
+              <div class="panel-head">
+                <h2>Draft Twin</h2>
+                <span id="builderPreviewState">not created</span>
+              </div>
+              <div class="draft-avatar">
+                <img src="/studio/assets/harvis-core-female.png" alt="Draft Copy-Me twin" />
+              </div>
+              <div class="summary-list">
+                <div><span>Vault</span><strong id="builderPreviewVault">-</strong></div>
+                <div><span>Persona</span><strong id="builderPreviewPersona">-</strong></div>
+                <div><span>Appearance</span><strong id="builderPreviewAppearance">-</strong></div>
+                <div><span>Permissions</span><strong id="builderPreviewPermissions">-</strong></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="reviewView" data-title="Review Center">
+          <div class="review-layout">
+            <aside class="review-summary-panel">
+              <div class="panel-head">
+                <h2>Review Center</h2>
+                <button id="memorySnapshotButton" class="soft-action" type="button">Snapshot</button>
+              </div>
+              <div class="review-metrics">
+                <div><span>Personality</span><strong id="reviewPersonalityCount">0</strong></div>
+                <div><span>Memory</span><strong id="reviewMemoryCount">0</strong></div>
+                <div><span>Approvals</span><strong id="reviewApprovalCount">0</strong></div>
+              </div>
+              <p id="reviewCenterStatus">Waiting for review data.</p>
+            </aside>
+
+            <section class="review-inbox-panel">
+              <div class="panel-head">
+                <h2>Review Inbox</h2>
+                <select id="reviewFilter">
+                  <option value="all">all</option>
+                  <option value="personality">personality</option>
+                  <option value="memory">memory</option>
+                  <option value="approval">approval</option>
+                </select>
+              </div>
+              <div id="reviewList" class="review-list empty">No review items.</div>
+            </section>
+
+            <aside class="review-detail-panel">
+              <div class="panel-head">
+                <h2 id="reviewDetailTitle">Select an item</h2>
+                <span id="reviewDetailKind">-</span>
+              </div>
+              <p id="reviewDetailBody">Personality changes, memory candidates, and approval items appear here with the safest available action.</p>
+              <div id="reviewEvidenceList" class="stack empty">No evidence.</div>
+              <div class="review-actions">
+                <button id="reviewApproveButton" type="button">Approve</button>
+                <button id="reviewRejectButton" class="soft-action" type="button">Reject</button>
+                <button id="reviewDeferButton" class="soft-action" type="button">Defer</button>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="memoryView" data-title="Memory">
+          <div class="placeholder-grid">
+            <article>
+              <h2>Memory Vault</h2>
+              <div id="vaultList" class="stack empty">No vaults.</div>
+            </article>
+            <article>
+              <h2>Personality Review</h2>
+              <div id="candidateList" class="stack empty">No candidates.</div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="consoleView" data-title="Agent Console">
+          <div class="console-layout">
+            <section class="console-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Agent Gateway</h2>
+                  <span id="consoleStatus">idle</span>
+                </div>
+                <button id="consoleStatusButton" class="soft-action" type="button">Status</button>
+              </div>
+              <div class="console-form">
+                <label>
+                  <span>Channel</span>
+                  <select id="consoleChannelInput">
+                    <option value="webview">webview</option>
+                    <option value="feishu">feishu</option>
+                    <option value="wechat">wechat</option>
+                    <option value="console">console</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Sender</span>
+                  <input id="consoleSenderInput" autocomplete="off" spellcheck="false" value="studio-console" />
+                </label>
+                <label>
+                  <span>Message ID</span>
+                  <input id="consoleMessageIdInput" autocomplete="off" spellcheck="false" />
+                </label>
+                <label class="console-message-field">
+                  <span>Message</span>
+                  <textarea id="consoleMessageInput" spellcheck="false">查 just-ddl 最近失败</textarea>
+                </label>
+              </div>
+              <div class="editor-actions">
+                <button id="consoleSendButton" type="button">Send</button>
+                <button id="consoleClearButton" class="soft-action" type="button">Clear</button>
+              </div>
+            </section>
+
+            <aside class="console-summary-panel">
+              <div class="panel-head">
+                <h2>Result</h2>
+                <span id="consoleResultBadge">no run</span>
+              </div>
+              <div id="consoleSummary" class="stack empty">No console request yet.</div>
+            </aside>
+
+            <aside class="console-summary-panel">
+              <div class="panel-head">
+                <h2>Known Projects</h2>
+                <span id="consoleProjectCount">0</span>
+              </div>
+              <div id="consoleProjects" class="stack empty">No known projects.</div>
+            </aside>
+
+            <aside class="console-summary-panel">
+              <div class="panel-head">
+                <h2>Agent Pools</h2>
+                <span id="consoleAgentPoolCount">0/0/0</span>
+              </div>
+              <div id="consoleAgentPools" class="stack empty">No agent pools.</div>
+            </aside>
+
+            <section class="console-log-panel">
+              <div class="panel-head">
+                <h2>Raw Response</h2>
+                <span>read only</span>
+              </div>
+              <pre id="consoleRawOutput">{}</pre>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="bridgeView" data-title="Lark Bridge Guide">
+          <div class="bridge-layout">
+            <section class="op-integration-card" aria-labelledby="larkIntegrationTitle" data-ui-state="loading">
+              <div>
+                <span class="op-section-kicker">Integration evidence</span>
+                <h2 id="larkIntegrationTitle">Lark bridge</h2>
+                <p id="opLarkSummary">Reading listener and duplicate-guard evidence.</p>
+                <div class="op-action-row">
+                  <a id="opLarkSmokeLink" class="button-link soft-action" href="/ui/t317-smoke.json">T317 smoke evidence</a>
+                  <button id="opLarkRefreshButton" type="button">Refresh status</button>
+                </div>
+              </div>
+              <div class="op-integration-facts" aria-label="Redacted Lark bridge status">
+                <div class="op-integration-fact"><span>Profile roles</span><strong id="opLarkRoles">—</strong></div>
+                <div class="op-integration-fact"><span>Listener health</span><strong id="opLarkListeners">—</strong></div>
+                <div class="op-integration-fact"><span>Last card action</span><strong id="opLarkAge">—</strong></div>
+                <div class="op-integration-fact"><span>Local duplicate guard</span><strong id="opLarkDuplicate">—</strong></div>
+                <div class="op-integration-fact"><span>Scope</span><strong id="opLarkScope">—</strong></div>
+                <div class="op-integration-fact"><span>Membership</span><strong id="opLarkMembership">—</strong></div>
+              </div>
+            </section>
+            <article class="bridge-hero-panel">
+              <div>
+                <span class="eyebrow">Mobile Collaboration Layer</span>
+                <h2>Lark Bridge is not the control plane</h2>
+                <p>
+                  飞书负责入口、卡片、线程、文档和手机反馈；H.A.R.V.I.S. 负责 Router、Task Board、审批、handoff、runner、review 和候选记忆。
+                  两者有交集，但不能混成一层。
+                </p>
+              </div>
+              <div class="bridge-flow" aria-label="Bridge to control plane flow">
+                <div><strong>Feishu</strong><span>message / card / thread</span></div>
+                <i></i>
+                <div><strong>Harvis</strong><span>router / task / approval</span></div>
+                <i></i>
+                <div><strong>Harness</strong><span>codex / kimi / claude</span></div>
+                <i></i>
+                <div><strong>Review</strong><span>card / memory candidate</span></div>
+              </div>
+            </article>
+
+            <section class="bridge-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Safe Commands</h2>
+                  <span>手机飞书可直接输入</span>
+                </div>
+                <a class="button-link soft-action" href="/studio/">Open Console</a>
+              </div>
+              <div class="command-grid">
+                <div><code>/help</code><span>打开常见查询卡片。</span></div>
+                <div><code>/status</code><span>查看当前任务、最近运行和日志入口。</span></div>
+                <div><code>/doctor bot 无响应</code><span>只读诊断 Harvis、listener 和事件消费者。</span></div>
+                <div><code>/ps</code><span>查看 Feishu listener、Harvis HTTP、tick 服务状态。</span></div>
+                <div><code>/new 主题名</code><span>创建 Agent Room topic，不自动执行任务。</span></div>
+                <div><code>任务：...</code><span>进入 Router 和 Task Board，等待审批。</span></div>
+                <div><code>批准执行</code><span>按同一会话最近任务推断 packet，仍走 handoff 审批链。</span></div>
+                <div><code>666</code><span>再次打开 FAQ 卡片。</span></div>
+              </div>
+            </section>
+
+            <section class="bridge-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>What Already Works</h2>
+                  <span>当前 Harvis Bridge 能力</span>
+                </div>
+              </div>
+              <div class="bridge-checklist">
+                <div><strong>Message intake</strong><span>飞书消息进入 Harvis Agent Gateway。</span></div>
+                <div><strong>Task board</strong><span>任务写入统一 Task Board，不再只是 inbox 文本。</span></div>
+                <div><strong>Dry-run Chair</strong><span>根据任务建议 cxspark / cckimi / mimocode / likecode。</span></div>
+                <div><strong>Approval gate</strong><span>执行前必须显式批准。</span></div>
+                <div><strong>Completion card</strong><span>完成后回传 run、handoff、日志、摘要。</span></div>
+                <div><strong>Card actions</strong><span>card.action.trigger listener 已常驻。</span></div>
+              </div>
+            </section>
+
+            <section class="bridge-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Next Implementation</h2>
+                  <span>别再走临时入口</span>
+                </div>
+              </div>
+              <div class="bridge-roadmap">
+                <div>
+                  <b>01</b>
+                  <strong>Session Store</strong>
+                  <span>把 chat/thread 绑定到 topic、workspace、active task。</span>
+                </div>
+                <div>
+                  <b>02</b>
+                  <strong>Workspace Commands</strong>
+                  <span>实现 /ws list/save/use/remove，但不直接执行 shell。</span>
+                </div>
+                <div>
+                  <b>03</b>
+                  <strong>Rich Reports</strong>
+                  <span>长报告写飞书文档或 Workbench，不塞爆聊天。</span>
+                </div>
+                <div>
+                  <b>04</b>
+                  <strong>Mobile Workbench</strong>
+                  <span>卡片按钮打开公网 HTTPS 工作台，避免 127.0.0.1。</span>
+                </div>
+              </div>
+            </section>
+
+            <section class="bridge-panel bridge-source-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Reference</h2>
+                  <span>借鉴思想，不照搬控制平面</span>
+                </div>
+              </div>
+              <p>
+                飞书教程展示了 Lark Coding Agent Bridge 的产品形态：移动端对话、多 session、交互卡片、文档协作、消息转任务和聊天记录沉淀。
+                H.A.R.V.I.S. 的升级方向是复用这些交互形态，同时保留本地 control plane 的审计、审批和复核边界。
+              </p>
+              <a class="button-link" href="https://www.feishu.cn/content/article/7647408304896953549" target="_blank" rel="noreferrer">Read Feishu Guide</a>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="graphView" data-title="Knowledge Graph">
+          <div class="graph-layout">
+            <aside class="graph-summary-panel">
+              <div class="panel-head">
+                <h2>Local Graph</h2>
+                <span id="graphStatus">idle</span>
+              </div>
+              <div class="graph-metrics">
+                <div><span>Notes</span><strong id="graphNoteCount">0</strong></div>
+                <div><span>Edges</span><strong id="graphEdgeCount">0</strong></div>
+                <div><span>Tags</span><strong id="graphTagCount">0</strong></div>
+                <div><span>Missing</span><strong id="graphMissingCount">0</strong></div>
+              </div>
+              <div class="graph-source" id="graphSource">No vault scanned.</div>
+              <div id="graphWarnings" class="stack empty">No warnings.</div>
+            </aside>
+
+            <section class="graph-panel">
+              <div class="panel-head graph-toolbar">
+                <h2>Workbench</h2>
+                <div class="graph-controls">
+                  <input id="graphSearchInput" autocomplete="off" spellcheck="false" placeholder="Search nodes" />
+                  <select id="graphTagFilter"></select>
+                  <select id="graphModeSelect">
+                    <option value="workbench">Workbench</option>
+                    <option value="galaxy">Galaxy</option>
+                  </select>
+                </div>
+              </div>
+              <div class="graph-stage" id="graphStage">
+                <svg id="graphSvg" viewBox="0 0 920 540" role="img" aria-label="Local knowledge graph"></svg>
+              </div>
+            </section>
+
+            <aside class="graph-detail-panel">
+              <div class="panel-head">
+                <h2 id="graphDetailTitle">Select a node</h2>
+                <span id="graphDetailType">-</span>
+              </div>
+              <div id="graphDetailMeta" class="summary-list"></div>
+              <div id="graphRelatedList" class="stack empty">No related nodes.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="settingsView" data-title="Settings">
+          <div class="placeholder-grid">
+            <article>
+              <h2>Runtime</h2>
+              <pre id="outputLog">{}</pre>
+            </article>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog class="op-dialog" id="operatorConfirmDialog" aria-labelledby="operatorConfirmTitle">
+      <div class="op-dialog-body">
+        <h2 id="operatorConfirmTitle" data-op-confirm-title>Confirm action</h2>
+        <p data-op-confirm-detail>Review the impact before continuing.</p>
+        <div class="op-impact-box" data-op-confirm-impact>Scope: current item only</div>
+      </div>
+      <div class="op-dialog-actions">
+        <button type="button" class="soft-action" data-op-confirm-cancel>Go back</button>
+        <button type="button" data-op-confirm-accept>Continue</button>
+      </div>
+    </dialog>
+
+    <script src="/ui/runtime.js" defer></script>
+    <script src="/ui/operator.js" defer></script>
+    <script src="/studio/studio.js?v=20260629-ports-status" defer></script>
+  </body>
+</html>

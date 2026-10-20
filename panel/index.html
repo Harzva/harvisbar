@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>H.A.R.V.I.S. Local Panel</title>
+    <link rel="icon" href="/studio/assets/harvis-app-icon.png" />
+    <link rel="stylesheet" href="/panel/styles.css" />
+    <link rel="stylesheet" href="/ui/tokens.css" />
+    <link rel="stylesheet" href="/ui/operator.css" />
+  </head>
+  <body>
+    <main class="shell" data-state="idle" data-runtime-state="idle" data-ui-state="loading" data-connected="false">
+      <section class="status-band" aria-labelledby="agent-title">
+        <div class="identity">
+          <p class="eyebrow">Harzva Adaptive Runtime</p>
+          <h1 id="agent-title">H.A.R.V.I.S.</h1>
+          <p id="summaryLine" class="summary">Awaiting workspace.</p>
+        </div>
+
+        <div class="core-wrap" aria-live="polite">
+          <div class="presence-stage" aria-label="Animated H.A.R.V.I.S. Presence">
+            <div class="siri-ripple siri-ripple-a" aria-hidden="true"></div>
+            <div class="siri-ripple siri-ripple-b" aria-hidden="true"></div>
+            <div class="siri-ripple siri-ripple-c" aria-hidden="true"></div>
+            <div class="voice-wave" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="presence-aura" aria-hidden="true"></div>
+            <div class="scan-line" aria-hidden="true"></div>
+            <img class="cyberme-avatar" src="/studio/assets/harvis-core-male.png" alt="H.A.R.V.I.S. CyberMe avatar" />
+            <div class="presence-status-dot" aria-hidden="true"></div>
+          </div>
+          <div class="core" aria-hidden="true">
+            <div class="ring ring-a"></div>
+            <div class="ring ring-b"></div>
+            <div class="beam"></div>
+            <div class="iris"></div>
+          </div>
+          <div>
+            <p class="state-label">State</p>
+            <p id="stateText" class="state-text">idle</p>
+            <p id="presenceCaption" class="presence-caption">Standing by.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="op-command-deck panel-command-deck" aria-label="Compact operator cockpit" data-ui-state="loading" aria-busy="true">
+        <div class="op-signal-grid" aria-label="High signal runtime summary">
+          <article class="op-signal" id="panelHealthSignal" data-state="reading"><span class="op-signal-label">Health</span><strong id="panelHealthValue">Checking</strong><p id="panelHealthDetail">Reading localhost.</p></article>
+          <article class="op-signal" id="panelActiveSignal" data-state="idle"><span class="op-signal-label">Active run</span><strong id="panelActiveValue">None</strong><p id="panelActiveDetail">No active action.</p></article>
+          <article class="op-signal" id="panelBlockedSignal" data-state="idle"><span class="op-signal-label">Blocked</span><strong id="panelBlockedValue">0</strong><p id="panelBlockedDetail">No stopped work.</p></article>
+          <article class="op-signal" id="panelApprovalSignal" data-state="idle"><span class="op-signal-label">Approvals</span><strong id="panelApprovalValue">0</strong><p id="panelApprovalDetail">No decision waiting.</p></article>
+          <article class="op-signal" id="panelLarkSignal" data-state="reading"><span class="op-signal-label">Lark</span><strong id="panelLarkValue">Checking</strong><p id="panelLarkDetail">Reading bridge evidence.</p></article>
+        </div>
+        <div class="op-primary-grid">
+          <article class="op-next-action" id="panelNextAction" data-state="loading">
+            <span class="op-section-kicker">Next safe action</span>
+            <h2 id="panelNextTitle">Wait for evidence</h2>
+            <p id="panelNextDetail">Actions remain disabled until state is known.</p>
+            <div class="op-action-row">
+              <a id="panelNextLink" class="button-link" href="/studio/?view=work">Open work</a>
+              <span id="panelNextImpact" class="op-action-impact">Read-only</span>
+            </div>
+          </article>
+          <article class="op-lineage-card">
+            <span class="op-section-kicker">Line of authority</span>
+            <h2>Current lineage</h2>
+            <div class="op-lineage" id="panelLineage">
+              <div class="op-lineage-step" data-stage="task" data-state="idle"><strong>Task</strong><small>not linked</small></div>
+              <div class="op-lineage-step" data-stage="approval" data-state="idle"><strong>Approval</strong><small>not linked</small></div>
+              <div class="op-lineage-step" data-stage="handoff" data-state="idle"><strong>Handoff</strong><small>not linked</small></div>
+              <div class="op-lineage-step" data-stage="run" data-state="idle"><strong>Run</strong><small>not linked</small></div>
+              <div class="op-lineage-step" data-stage="review" data-state="idle"><strong>Review</strong><small>not linked</small></div>
+            </div>
+          </article>
+        </div>
+        <article class="op-state-scene" data-op-state-scene data-ui-state="idle" hidden aria-live="polite">
+          <span class="op-section-kicker">State fixture</span><h2 data-op-state-title>State</h2><p data-op-state-detail></p>
+          <p class="op-state-note"><strong>Next:</strong> <span data-op-state-next></span></p>
+        </article>
+      </section>
+
+      <details class="panel-controls-detail">
+        <summary>Safe actions and session</summary>
+        <section class="controls" aria-label="Runtime controls">
+          <label><span>Workspace</span><input id="rootInput" type="text" autocomplete="off" spellcheck="false" placeholder="Runtime workspace" readonly /></label>
+          <label><span>Profile</span><input id="profileInput" type="text" autocomplete="off" spellcheck="false" value="~/.harvis" /></label>
+          <label><span>Session token</span><input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="Memory only; never stored" aria-label="Session bearer token, kept only in page memory" /></label>
+          <div class="button-row">
+            <button id="refreshButton" type="button">Status</button>
+            <button id="scanButton" type="button">Scan</button>
+            <button id="tickButton" type="button">Tick</button>
+            <button id="snapshotButton" type="button">Snapshot</button>
+            <button id="workbenchButton" type="button">Workbench</button>
+          </div>
+        </section>
+      </details>
+
+      <section class="state-rail" aria-label="State rail">
+        <span data-chip="idle">idle</span>
+        <span data-chip="reading">reading</span>
+        <span data-chip="thinking">thinking</span>
+        <span data-chip="acting">acting</span>
+        <span data-chip="verified">verified</span>
+        <span data-chip="blocked">blocked</span>
+      </section>
+
+      <section class="grid panel-core-grid">
+        <article class="surface status-surface">
+          <div class="surface-head">
+            <h2>Runtime</h2>
+            <span id="runtimeStamp">not synced</span>
+          </div>
+          <dl class="metrics">
+            <div>
+              <dt>Packets</dt>
+              <dd id="packetMetric">0</dd>
+            </div>
+            <div>
+              <dt>Errors</dt>
+              <dd id="errorMetric">0</dd>
+            </div>
+            <div>
+              <dt>Mode</dt>
+              <dd id="modeMetric">-</dd>
+            </div>
+          </dl>
+        </article>
+
+      </section>
+      <details class="panel-diagnostics">
+        <summary>Advanced diagnostics · <span id="packetCount">0</span> packets · <span id="eventCount">0</span> events</summary>
+        <section class="grid">
+          <article class="surface"><div class="surface-head"><h2>Packets</h2></div><div id="packetList" class="stack empty">No packets.</div></article>
+          <article class="surface"><div class="surface-head"><h2>Events</h2></div><div id="eventList" class="stack empty">No events.</div></article>
+          <article class="surface output-surface"><div class="surface-head"><h2>Latest Output</h2><span id="outputKind">none</span></div><pre id="outputLog">No output.</pre></article>
+        </section>
+      </details>
+    </main>
+
+    <dialog class="op-dialog" id="panelConfirmDialog" aria-labelledby="panelConfirmTitle">
+      <div class="op-dialog-body"><h2 id="panelConfirmTitle" data-op-confirm-title>Confirm action</h2><p data-op-confirm-detail></p><div class="op-impact-box" data-op-confirm-impact></div></div>
+      <div class="op-dialog-actions"><button type="button" class="soft-action" data-op-confirm-cancel>Go back</button><button type="button" data-op-confirm-accept>Continue</button></div>
+    </dialog>
+
+    <script src="/ui/runtime.js" defer></script>
+    <script src="/ui/operator.js" defer></script>
+    <script src="/panel/panel.js" defer></script>
+  </body>
+</html>

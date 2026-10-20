@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>H.A.R.V.I.S. Mobile</title>
+    <link rel="icon" href="/studio/assets/harvis-app-icon.png" />
+    <link rel="stylesheet" href="/ui/tokens.css" />
+    <link rel="stylesheet" href="/ui/operator.css" />
+    <link rel="stylesheet" href="/studio/mobile.css" />
+  </head>
+  <body>
+    <header class="mobile-topbar">
+      <div><span>H.A.R.V.I.S.</span><h1>Operator Pocket</h1></div>
+      <button id="refreshButton" type="button">刷新</button>
+    </header>
+
+    <main class="mobile-shell" data-runtime-state="reading" data-ui-state="loading" aria-busy="true">
+      <section class="op-next-action mobile-next" id="mobileNextAction" data-state="loading" aria-labelledby="mobileNextTitle">
+        <span class="op-section-kicker">下一安全动作</span>
+        <h2 id="mobileNextTitle">等待运行时证据</h2>
+        <p id="mobileNextDetail">尚未读取健康、工作和审批状态。</p>
+        <div class="op-action-row"><a id="mobileNextLink" class="button-link" href="/studio/?view=work">打开证据</a><span id="mobileNextImpact">只读</span></div>
+      </section>
+
+      <section class="mobile-six" aria-label="六问摘要">
+        <article id="mobileHealthSignal" data-state="reading"><span>Health</span><strong id="mobileHealthValue">读取中</strong></article>
+        <article id="mobileActiveSignal" data-state="idle"><span>Active</span><strong id="mobileActiveValue">未知</strong></article>
+        <article id="mobileBlockedSignal" data-state="idle"><span>Blocked</span><strong id="mobileBlockedValue">—</strong></article>
+        <article id="mobileApprovalSignal" data-state="idle"><span>Approval</span><strong id="mobileApprovalValue">—</strong></article>
+        <article id="mobileLarkSignal" data-state="reading"><span>Lark</span><strong id="mobileLarkValue">读取中</strong></article>
+        <article id="mobileNextSignal" data-state="reading"><span>Next</span><strong id="mobileNextValue">等待</strong></article>
+      </section>
+
+      <section class="mobile-lineage-panel" aria-labelledby="mobileLineageTitle">
+        <div class="mobile-inline-head"><h2 id="mobileLineageTitle">当前链路</h2><span>仅显式关联</span></div>
+        <div class="op-lineage mobile-lineage" id="mobileLineage">
+          <div class="op-lineage-step" data-stage="task" data-state="idle"><strong>Task</strong><small>未关联</small></div>
+          <div class="op-lineage-step" data-stage="approval" data-state="idle"><strong>Approval</strong><small>未关联</small></div>
+          <div class="op-lineage-step" data-stage="handoff" data-state="idle"><strong>Handoff</strong><small>未关联</small></div>
+          <div class="op-lineage-step" data-stage="run" data-state="idle"><strong>Run</strong><small>未关联</small></div>
+          <div class="op-lineage-step" data-stage="review" data-state="idle"><strong>Review</strong><small>未关联</small></div>
+        </div>
+      </section>
+
+      <section class="mobile-approvals" aria-labelledby="mobileApprovalTitle">
+        <div class="mobile-inline-head"><h2 id="mobileApprovalTitle">待审批</h2><span id="approvalCount">—</span></div>
+        <div id="mobileApprovalList" class="mobile-approval-list"><div class="empty">读取中。</div></div>
+      </section>
+
+      <article class="op-state-scene" data-op-state-scene data-ui-state="idle" hidden aria-live="polite">
+        <span class="op-section-kicker">状态夹具</span><h2 data-op-state-title>State</h2><p data-op-state-detail></p>
+        <p><strong>下一步：</strong><span data-op-state-next></span></p>
+      </article>
+
+      <details class="mobile-session-detail">
+        <summary>会话与只读连接</summary>
+        <section id="setupPanel" class="panel">
+          <label><span>Workspace</span><input id="rootInput" autocomplete="off" spellcheck="false" placeholder="Runtime workspace" readonly /></label>
+          <label><span>Session token</span><input id="tokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="仅保存在当前页面内存" aria-label="当前页面内存中的 bearer token" /></label>
+          <button id="saveButton" type="button">连接并刷新</button>
+        </section>
+      </details>
+
+      <details><summary>Work · <span id="openTaskCount">—</span></summary><section class="panel"><div id="taskStatusList" class="list"></div><span id="taskStatusMeta" class="detail-meta">未加载</span></section></details>
+      <details><summary>Pins · <span id="pinCount">—</span></summary><section class="panel"><div id="pinBoardList" class="list"></div><span id="pinBoardMeta" class="detail-meta">未加载</span></section></details>
+      <details><summary>Timeline</summary><section class="panel"><div id="runTimelineList" class="timeline"></div><span id="timelineMeta" class="detail-meta">未加载</span></section></details>
+      <details><summary>Bindings</summary><section class="panel"><div id="bindingList" class="list"></div><span id="bindingMeta" class="detail-meta">未加载</span></section></details>
+      <details><summary>Lark callbacks · <span id="larkActionCount">—</span></summary><section class="panel"><div id="larkActionList" class="list"></div><span id="larkActionMeta" class="detail-meta">未加载</span></section></details>
+      <details><summary>Diagnostics · <span id="connectionState">idle</span></summary><section class="panel"><pre id="diagnosticLog" class="diagnostic"></pre></section></details>
+    </main>
+
+    <script src="/ui/runtime.js"></script>
+    <script src="/ui/operator.js"></script>
+    <script src="/studio/mobile.js"></script>
+  </body>
+</html>

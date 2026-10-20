@@ -1,0 +1,284 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/agent-pools.schema.json",
+  "title": "H.A.R.V.I.S. Agent Pools",
+  "type": "object",
+  "required": [
+    "version",
+    "safety",
+    "routing_policy",
+    "harness_pool",
+    "model_pool"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "includesSecrets",
+        "includesCredentialValues",
+        "includesCredentialPaths",
+        "reviewGateRequired"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "includesSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesCredentialValues": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesCredentialPaths": {
+          "type": "boolean",
+          "const": false
+        },
+        "reviewGateRequired": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "routing_policy": {
+      "type": "object",
+      "required": [
+        "agent_identity_source",
+        "harness_selection",
+        "model_selection",
+        "fallback_mode"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "agent_identity_source": {
+          "const": "agent-roster"
+        },
+        "harness_selection": {
+          "enum": ["agent-default", "task-capability", "explicit-user-choice"]
+        },
+        "model_selection": {
+          "enum": ["agent-default", "task-capability", "explicit-user-choice"]
+        },
+        "fallback_mode": {
+          "enum": ["ordered", "disabled"]
+        }
+      }
+    },
+    "harness_pool": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/harness"
+      }
+    },
+    "model_pool": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/model"
+      }
+    },
+    "runtime_preset_pool": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/runtimePreset"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+    },
+    "credentialRef": {
+      "type": "object",
+      "required": ["kind", "ref"],
+      "additionalProperties": true,
+      "properties": {
+        "kind": {
+          "enum": ["env", "cli-profile", "keychain", "local-access-note", "none"]
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contains_secret_value": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "required": [
+        "harness_id",
+        "label",
+        "kind",
+        "status",
+        "command_aliases",
+        "supports_model_override",
+        "default_model_id",
+        "allowed_model_ids",
+        "review_gate"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "harness_id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": ["codex", "dsh", "kimi-code", "claude-code", "likecode", "manual", "other"]
+        },
+        "status": {
+          "enum": ["active", "partial", "pending", "disabled"]
+        },
+        "command_aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "adapter": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "mode": {
+              "enum": ["cli", "mcp", "http", "manual"]
+            },
+            "prompt_input": {
+              "enum": ["stdin", "arg", "file", "manual"]
+            },
+            "result_output": {
+              "enum": ["stdout", "file", "json", "manual"]
+            }
+          }
+        },
+        "supports_model_override": {
+          "type": "boolean"
+        },
+        "default_model_id": {
+          "$ref": "#/$defs/id"
+        },
+        "allowed_model_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "review_gate": {
+          "enum": ["required", "recommended", "not-allowed"]
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": [
+        "model_id",
+        "label",
+        "provider",
+        "status",
+        "credential_ref",
+        "capabilities",
+        "preferred_harness_ids"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "model_id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "enum": ["openai", "moonshot-kimi", "deepseek", "anthropic", "minimax", "siliconflow", "local", "other"]
+        },
+        "status": {
+          "enum": ["active", "partial", "pending", "disabled"]
+        },
+        "credential_ref": {
+          "$ref": "#/$defs/credentialRef"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "enum": ["coding", "reasoning", "fast-reply", "long-context", "tool-use", "vision", "review", "summarization"]
+          }
+        },
+        "preferred_harness_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "fallback_model_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "preferred_preset_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "runtimePreset": {
+      "type": "object",
+      "required": [
+        "preset_id",
+        "label",
+        "harness_id",
+        "model_id",
+        "status",
+        "command_aliases",
+        "review_gate"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "preset_id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "harness_id": {
+          "$ref": "#/$defs/id"
+        },
+        "model_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": ["active", "partial", "pending", "disabled"]
+        },
+        "command_aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "wrapper_skill_id": {
+          "$ref": "#/$defs/id"
+        },
+        "review_gate": {
+          "enum": ["required", "recommended", "not-allowed"]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

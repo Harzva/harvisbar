@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "harvis.agent-room-participant.schema.json",
+  "title": "H.A.R.V.I.S. Agent Room Participant Slot",
+  "type": "object",
+  "required": [
+    "slot_id",
+    "role",
+    "display_name",
+    "execution_mode",
+    "status",
+    "permissions"
+  ],
+  "properties": {
+    "agent_room_version": { "type": "string" },
+    "gwt_workbench_version": { "type": "string" },
+    "slot_id": { "type": "string", "minLength": 1 },
+    "role": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1 },
+    "provider_ref": { "type": ["string", "null"] },
+    "model_ref": { "type": ["string", "null"] },
+    "harness_ref": { "type": ["string", "null"] },
+    "route_ref": { "type": ["string", "null"] },
+    "execution_mode": { "type": "string" },
+    "status": { "type": "string" },
+    "permissions": { "type": "object" },
+    "safety": {
+      "type": "object",
+      "properties": {
+        "executes_without_approval": { "const": false },
+        "adopts_memory_without_review": { "const": false },
+        "public_network_exposure": { "const": false }
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "harvis": {
+      "command": "./scripts/harvis",
+      "args": [
+        "mcp"
+      ],
+      "cwd": "."
+    },
+    "harvis-versions": {
+      "command": "/usr/bin/python3",
+      "args": [
+        "-I",
+        "./mcp/harvis_versions_mcp.py"
+      ],
+      "cwd": "."
+    }
+  }
+}

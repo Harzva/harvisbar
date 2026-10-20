@@ -1,0 +1,457 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/bar-status.schema.json",
+  "title": "H.A.R.V.I.S. Bar Status",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "safeForHarvisBar",
+    "generatedAt",
+    "runtime",
+    "workspace",
+    "serviceHealth",
+    "work",
+    "knowledge",
+    "agentHarnesses",
+    "ports",
+    "taskProgress",
+    "safety"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "harvis.bar-status.v0"
+    },
+    "safeForHarvisBar": {
+      "type": "boolean",
+      "const": true
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["name", "state", "mode", "autonomyLevel", "version", "summary"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "H.A.R.V.I.S."
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "idle",
+            "reading",
+            "thinking",
+            "acting",
+            "waiting_approval",
+            "blocked",
+            "verified",
+            "archived"
+          ]
+        },
+        "mode": {
+          "type": "string"
+        },
+        "autonomyLevel": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "version": {
+          "type": "string"
+        },
+        "sourceRuntimeVersion": {
+          "type": ["string", "null"]
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["label", "rootDisplay", "configured", "statusPresent", "allowlistCount"],
+      "additionalProperties": true,
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "rootDisplay": {
+          "type": "string"
+        },
+        "configured": {
+          "type": "boolean"
+        },
+        "statusPresent": {
+          "type": "boolean"
+        },
+        "allowlistCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "serviceHealth": {
+      "type": "object",
+      "required": ["http", "tickRunner", "mcp"],
+      "additionalProperties": true,
+      "properties": {
+        "http": {
+          "type": "string",
+          "enum": ["running", "not-probed", "stopped", "unhealthy"]
+        },
+        "tickRunner": {
+          "type": "string"
+        },
+        "mcp": {
+          "type": "string"
+        }
+      }
+    },
+    "work": {
+      "type": "object",
+      "required": [
+        "packets",
+        "packetStatusCounts",
+        "blocked",
+        "pendingApprovals",
+        "runtimeErrors",
+        "lastTickAt",
+        "lastEvent"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "packets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "packetStatusCounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pendingApprovals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runtimeErrors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastTickAt": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "lastEvent": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "knowledge": {
+      "type": "object",
+      "required": [
+        "hub",
+        "wiki",
+        "activeSources",
+        "allowlistedSources",
+        "redacted",
+        "includesLocalAbsolutePaths"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "hub": {
+          "type": "string"
+        },
+        "wiki": {
+          "type": "string"
+        },
+        "activeSources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allowlistedSources": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastLookupAt": {
+          "type": ["string", "null"]
+        },
+        "policy": {
+          "type": "string"
+        },
+        "redacted": {
+          "type": "boolean",
+          "const": true
+        },
+        "includesLocalAbsolutePaths": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "agentMail": {
+      "type": "object",
+      "required": [
+        "available",
+        "status",
+        "loggedIn",
+        "tokenStatus",
+        "cliPresent",
+        "unreadProbe",
+        "unreadPreviewCount",
+        "safeForHarvisBar",
+        "includesSecrets",
+        "includesRawBody"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "loggedIn": {
+          "type": "boolean"
+        },
+        "tokenStatus": {
+          "type": "string"
+        },
+        "cliPresent": {
+          "type": "boolean"
+        },
+        "account": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        },
+        "unreadProbe": {
+          "type": "string"
+        },
+        "unreadPreviewCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summary": {
+          "type": "string"
+        },
+        "safeForHarvisBar": {
+          "type": "boolean",
+          "const": true
+        },
+        "includesSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesRawBody": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "agentHarnesses": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "safeForHarvisBar",
+        "generatedAt",
+        "status",
+        "summary",
+        "testPolicy",
+        "includesModelCalls",
+        "includesSecrets",
+        "includesLocalAbsolutePaths",
+        "items"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "schemaVersion": {
+          "type": "string",
+          "const": "harvis.agent-harnesses.v0"
+        },
+        "safeForHarvisBar": {
+          "type": "boolean",
+          "const": true
+        },
+        "generatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ready", "degraded", "needs_review", "failed"]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "testPolicy": {
+          "type": "string",
+          "const": "status-only"
+        },
+        "includesModelCalls": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesLocalAbsolutePaths": {
+          "type": "boolean",
+          "const": false
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "runtime",
+              "model",
+              "status",
+              "summary",
+              "skillPresent",
+              "wrapperPresent",
+              "nativeWrapperPresent",
+              "reviewMarkerPresent",
+              "cliPresent",
+              "pendingReviews",
+              "reviewedRuns",
+              "test"
+            ],
+            "additionalProperties": true,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9_.:/-]*$"
+              },
+              "label": {
+                "type": "string"
+              },
+              "runtime": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["ready", "needs_review", "partial", "unavailable", "failed"]
+              },
+              "summary": {
+                "type": "string"
+              },
+              "skillPresent": {
+                "type": "boolean"
+              },
+              "wrapperPresent": {
+                "type": "boolean"
+              },
+              "nativeWrapperPresent": {
+                "type": "boolean"
+              },
+              "reviewMarkerPresent": {
+                "type": "boolean"
+              },
+              "nativeWrapperKind": {
+                "type": "string"
+              },
+              "cliPresent": {
+                "type": "boolean"
+              },
+              "cliCommand": {
+                "type": ["string", "null"]
+              },
+              "pendingReviews": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reviewedRuns": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "latestRun": {
+                "type": ["object", "null"],
+                "additionalProperties": true
+              },
+              "test": {
+                "type": "object",
+                "required": ["status", "exitCode", "summary"],
+                "additionalProperties": true,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["not-run", "passed", "failed", "skipped"]
+                  },
+                  "exitCode": {
+                    "type": ["integer", "null"]
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ports": {
+      "$ref": "ports-status.schema.json"
+    },
+    "taskProgress": {
+      "$ref": "task-progress.schema.json#/$defs/status"
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "redacted",
+        "includesSecrets",
+        "includesRawMemory",
+        "includesCredentialPaths",
+        "includesLocalAbsolutePaths",
+        "networkExposure"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "redacted": {
+          "type": "boolean",
+          "const": true
+        },
+        "includesSecrets": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesRawMemory": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesCredentialPaths": {
+          "type": "boolean",
+          "const": false
+        },
+        "includesLocalAbsolutePaths": {
+          "type": "boolean",
+          "const": false
+        },
+        "networkExposure": {
+          "type": "string",
+          "const": "localhost-only"
+        }
+      }
+    }
+  }
+}

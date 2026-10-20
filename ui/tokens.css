@@ -1,0 +1,124 @@
+:root {
+  color-scheme: light dark;
+  --harvis-font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --harvis-font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --harvis-space-1: 4px;
+  --harvis-space-2: 8px;
+  --harvis-space-3: 12px;
+  --harvis-space-4: 16px;
+  --harvis-space-5: 24px;
+  --harvis-radius-sm: 6px;
+  --harvis-radius-md: 8px;
+  --harvis-radius-lg: 12px;
+  --harvis-border: #a9b7c7;
+  --harvis-focus: #ffbf47;
+  --harvis-active: #2f66d0;
+  --harvis-pending: #8a5a00;
+  --harvis-success: #13795b;
+  --harvis-warning: #9a5b00;
+  --harvis-blocked: #b42318;
+  --harvis-idle: #667085;
+  --harvis-reading: #087e8b;
+  --harvis-thinking: #8a5a00;
+  --harvis-acting: #7a3db8;
+  --harvis-verified: #13795b;
+  --harvis-touch: 44px;
+
+  /* Compatibility aliases keep existing surfaces visually stable while
+     making status semantics identical across Studio, Mobile, Panel, Presence,
+     and Roundtable. */
+  --green: var(--harvis-success);
+  --cyan: var(--harvis-reading);
+  --amber: var(--harvis-warning);
+  --red: var(--harvis-blocked);
+  --blue: var(--harvis-active);
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+button,
+[role="button"],
+input,
+select,
+textarea {
+  min-height: var(--harvis-touch);
+}
+
+button,
+[role="button"],
+.button-link {
+  min-width: var(--harvis-touch) !important;
+  min-height: var(--harvis-touch) !important;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+.button-link:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--harvis-focus) !important;
+  outline-offset: 2px;
+}
+
+input[readonly] {
+  cursor: default;
+  text-overflow: ellipsis;
+}
+
+[data-state="idle"] { --state: var(--harvis-idle); }
+[data-state="reading"] { --state: var(--harvis-reading); }
+[data-state="thinking"] { --state: var(--harvis-thinking); }
+[data-state="acting"] { --state: var(--harvis-acting); }
+[data-state="verified"] { --state: var(--harvis-verified); }
+[data-state="blocked"] { --state: var(--harvis-blocked); }
+
+.status-success,
+.badge.good { color: var(--harvis-success); }
+.status-warning,
+.badge.warn { color: var(--harvis-warning); }
+.status-blocked,
+.badge.bad { color: var(--harvis-blocked); }
+.status-pending { color: var(--harvis-pending); }
+.status-active { color: var(--harvis-active); }
+
+img,
+svg,
+canvas,
+pre,
+code {
+  max-width: 100%;
+}
+
+pre,
+code {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 430px) {
+  body,
+  main,
+  section,
+  article,
+  aside,
+  header,
+  footer {
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

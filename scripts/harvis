@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export HARVIS_PLUGIN_ROOT="$PLUGIN_ROOT"
+
+if [[ -x "$PLUGIN_ROOT/bin/harvis" ]]; then
+  exec "$PLUGIN_ROOT/bin/harvis" "$@"
+fi
+
+if [[ -x "$PLUGIN_ROOT/target/release/harvis" ]]; then
+  exec "$PLUGIN_ROOT/target/release/harvis" "$@"
+fi
+
+exec cargo run --quiet --manifest-path "$PLUGIN_ROOT/Cargo.toml" -p harvis-cli -- "$@"

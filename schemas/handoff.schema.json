@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/handoff.schema.json",
+  "title": "H.A.R.V.I.S. Harness Handoff",
+  "type": "object",
+  "required": [
+    "handoff_version",
+    "handoff_id",
+    "run_id",
+    "topic_id",
+    "harness",
+    "state",
+    "created_at",
+    "cost",
+    "usage",
+    "verification",
+    "safety"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "handoff_version": {
+      "type": "string"
+    },
+    "handoff_id": {
+      "type": "string",
+      "pattern": "^handoff_[A-Za-z0-9T_-]+$"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[A-Za-z0-9_-]+$"
+    },
+    "packet_id": {
+      "type": ["string", "null"]
+    },
+    "packet_path": {
+      "type": ["string", "null"]
+    },
+    "topic_id": {
+      "type": "string"
+    },
+    "harness": {
+      "type": "string",
+      "enum": ["codex", "dsh", "claude", "claude-code", "kimicode", "likecode", "manual"]
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "pending_harness",
+        "accepted",
+        "running",
+        "reviewing",
+        "verified",
+        "done",
+        "blocked",
+        "cancelled"
+      ]
+    },
+    "instruction": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cost": {
+      "type": "object",
+      "required": ["currency", "amount", "pricing_source"],
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "type": ["string", "null"]
+        },
+        "amount": {
+          "type": ["number", "null"]
+        },
+        "pricing_source": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "required": ["input_tokens", "output_tokens", "model_route", "provider"],
+      "additionalProperties": false,
+      "properties": {
+        "input_tokens": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "model_route": {
+          "type": ["string", "null"]
+        },
+        "provider": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["status", "evidence_refs", "verified_at"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not_started", "passed", "failed", "skipped"]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "verified_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        }
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_by": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "result_path": {
+      "type": "string"
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "history": {
+      "type": "array"
+    },
+    "safety": {
+      "type": "object",
+      "required": ["executes_task", "requires_harness", "requires_human_review_for_mutation"],
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,542 @@
+{
+  "$id": "https://harvis.local/schemas/release-provenance-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "definitions": {
+    "artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "0644",
+            "0755"
+          ],
+          "type": "string"
+        },
+        "relativePath": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/relativePath"
+            },
+            {
+              "pattern": "^(?:bin|artifacts)/.+$"
+            }
+          ]
+        },
+        "role": {
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "role",
+        "relativePath",
+        "mode",
+        "sizeBytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "inputFile": {
+      "additionalProperties": false,
+      "properties": {
+        "relativePath": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "relativePath",
+        "sizeBytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "previousRelease": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactHashes": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "role": {
+                "pattern": "^[a-z0-9][a-z0-9._-]*$",
+                "type": "string"
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": [
+              "role",
+              "sha256"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "cacheKey": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "provenanceSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sourceCommit": {
+          "$ref": "#/$defs/gitObjectId"
+        },
+        "sourceTree": {
+          "$ref": "#/$defs/gitObjectId"
+        }
+      },
+      "required": [
+        "artifactHashes",
+        "cacheKey",
+        "provenanceSha256",
+        "sourceCommit",
+        "sourceTree"
+      ],
+      "type": "object"
+    },
+    "schemaFile": {
+      "additionalProperties": false,
+      "properties": {
+        "relativePath": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "relativePath",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "toolVersion": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "available": {
+              "const": false
+            }
+          },
+          "required": [
+            "available"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "available": {
+              "const": true
+            },
+            "version": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "available",
+            "version"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "gitObjectId": {
+      "pattern": "^[0-9a-f]{40,64}$",
+      "type": "string"
+    },
+    "relativePath": {
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "artifacts": {
+      "items": {
+        "$ref": "#/definitions/artifact"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "cache": {
+      "additionalProperties": false,
+      "properties": {
+        "baseVersion": {
+          "pattern": "^[0-9A-Za-z][0-9A-Za-z.-]*$",
+          "type": "string"
+        },
+        "bindingSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cacheKey": {
+          "pattern": "^personal/harvis/[0-9A-Za-z][0-9A-Za-z.-]*\\+codex\\.p2-[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "effectiveVersion": {
+          "pattern": "^[0-9A-Za-z][0-9A-Za-z.-]*\\+codex\\.p2-[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "namespace": {
+          "const": "personal/harvis"
+        }
+      },
+      "required": [
+        "baseVersion",
+        "bindingSha256",
+        "cacheKey",
+        "effectiveVersion",
+        "namespace"
+      ],
+      "type": "object"
+    },
+    "generatedAt": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "inputs": {
+      "additionalProperties": false,
+      "properties": {
+        "allowlist": {
+          "additionalProperties": false,
+          "properties": {
+            "relativePath": {
+              "const": "packaging/plugin-stage-allowlist-v1.txt"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "required": [
+            "relativePath",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "cargoLock": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/inputFile"
+            },
+            {
+              "properties": {
+                "relativePath": {
+                  "const": "Cargo.lock"
+                }
+              }
+            }
+          ]
+        },
+        "pluginManifest": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/inputFile"
+            },
+            {
+              "properties": {
+                "relativePath": {
+                  "const": ".codex-plugin/plugin.json"
+                }
+              }
+            }
+          ]
+        },
+        "schemaSet": {
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "files": {
+              "contains": {
+                "properties": {
+                  "relativePath": {
+                    "const": "schemas/release-provenance-v2.schema.json"
+                  }
+                },
+                "required": [
+                  "relativePath"
+                ]
+              },
+              "items": {
+                "$ref": "#/definitions/schemaFile"
+              },
+              "maxContains": 1,
+              "minContains": 1,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "setSha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "required": [
+            "count",
+            "files",
+            "setSha256"
+          ],
+          "type": "object"
+        },
+        "swiftPackage": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/inputFile"
+            },
+            {
+              "properties": {
+                "relativePath": {
+                  "const": "apps/HarvisBar/Package.swift"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "allowlist",
+        "cargoLock",
+        "pluginManifest",
+        "schemaSet",
+        "swiftPackage"
+      ],
+      "type": "object"
+    },
+    "previousRelease": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/definitions/previousRelease"
+        }
+      ]
+    },
+    "safety": {
+      "additionalProperties": false,
+      "properties": {
+        "allowlistOnly": {
+          "const": true
+        },
+        "containsAbsolutePaths": {
+          "const": false
+        },
+        "installPerformed": {
+          "const": false
+        },
+        "normalizedMtime": {
+          "const": true
+        },
+        "outputGuard": {
+          "const": "formal-cache-and-runtime-v1"
+        },
+        "payloadPrivatePathScan": {
+          "const": "all-stage-files-v1"
+        },
+        "sourceKind": {
+          "const": "clean-committed-head"
+        }
+      },
+      "required": [
+        "allowlistOnly",
+        "containsAbsolutePaths",
+        "installPerformed",
+        "normalizedMtime",
+        "outputGuard",
+        "payloadPrivatePathScan",
+        "sourceKind"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": "harvis.release-provenance.v2"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "clean": {
+          "const": true
+        },
+        "commit": {
+          "$ref": "#/$defs/gitObjectId"
+        },
+        "repositoryId": {
+          "const": "harvis"
+        },
+        "tree": {
+          "$ref": "#/$defs/gitObjectId"
+        },
+        "workspaceVersion": {
+          "pattern": "^[0-9A-Za-z][0-9A-Za-z.-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "clean",
+        "commit",
+        "repositoryId",
+        "tree",
+        "workspaceVersion"
+      ],
+      "type": "object"
+    },
+    "sourceDateEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stage": {
+      "additionalProperties": false,
+      "properties": {
+        "cachePayloadScope": {
+          "const": "all final files with plugin manifest normalized to committed HEAD"
+        },
+        "cachePayloadSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "digestAlgorithm": {
+          "const": "sha256(path\\0mode\\0size\\0sha256\\0\\n)"
+        },
+        "digestScope": {
+          "const": "all files except release-provenance-v2.json"
+        },
+        "fileCount": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "inputPayloadSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "stagedPayloadSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "cachePayloadScope",
+        "cachePayloadSha256",
+        "digestAlgorithm",
+        "digestScope",
+        "fileCount",
+        "inputPayloadSha256",
+        "stagedPayloadSha256"
+      ],
+      "type": "object"
+    },
+    "toolchain": {
+      "additionalProperties": false,
+      "properties": {
+        "aggregateSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "commands": {
+          "additionalProperties": false,
+          "properties": {
+            "cargo": {
+              "$ref": "#/definitions/toolVersion"
+            },
+            "rustc": {
+              "$ref": "#/definitions/toolVersion"
+            },
+            "swift": {
+              "$ref": "#/definitions/toolVersion"
+            },
+            "xcodebuild": {
+              "$ref": "#/definitions/toolVersion"
+            }
+          },
+          "required": [
+            "cargo",
+            "rustc",
+            "swift",
+            "xcodebuild"
+          ],
+          "type": "object"
+        },
+        "platform": {
+          "additionalProperties": false,
+          "properties": {
+            "architecture": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            },
+            "system": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "architecture",
+            "release",
+            "system"
+          ],
+          "type": "object"
+        },
+        "python": {
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "implementation",
+            "version"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "aggregateSha256",
+        "commands",
+        "platform",
+        "python"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "sourceDateEpoch",
+    "source",
+    "inputs",
+    "toolchain",
+    "stage",
+    "cache",
+    "artifacts",
+    "previousRelease",
+    "safety"
+  ],
+  "title": "Harvis Release Provenance v2",
+  "type": "object"
+}

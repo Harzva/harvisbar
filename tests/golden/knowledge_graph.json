@@ -1,0 +1,152 @@
+{
+  "edges": [
+    {
+      "label": "Second Note",
+      "source": "note:index",
+      "target": "note:second-note",
+      "type": "markdown"
+    },
+    {
+      "label": "Second Note",
+      "source": "note:index",
+      "target": "note:second-note",
+      "type": "wiki"
+    },
+    {
+      "label": "harvis",
+      "source": "note:index",
+      "target": "tag:harvis",
+      "type": "tagged"
+    },
+    {
+      "label": "rust",
+      "source": "note:index",
+      "target": "tag:rust",
+      "type": "tagged"
+    },
+    {
+      "label": "Index",
+      "source": "note:second-note",
+      "target": "note:index",
+      "type": "wiki"
+    },
+    {
+      "label": "fixture",
+      "source": "note:second-note",
+      "target": "tag:fixture",
+      "type": "tagged"
+    }
+  ],
+  "errors": [],
+  "graph_version": "v0.32-alpha",
+  "includesLocalAbsolutePaths": false,
+  "limits": {
+    "max_edges": 4000,
+    "max_files": 50,
+    "max_nodes": 100
+  },
+  "nodes": [
+    {
+      "id": "note:index",
+      "in_degree": 1,
+      "modified_at": 1782331457,
+      "out_degree": 4,
+      "size": 174,
+      "tags": [
+        "harvis",
+        "rust"
+      ],
+      "title": "Fixture Index",
+      "type": "note",
+      "vault": "workspace",
+      "workspace_path": null
+    },
+    {
+      "id": "note:second-note",
+      "in_degree": 2,
+      "modified_at": 1782331457,
+      "out_degree": 2,
+      "size": 48,
+      "tags": [
+        "fixture"
+      ],
+      "title": "Second Note",
+      "type": "note",
+      "vault": "workspace",
+      "workspace_path": null
+    },
+    {
+      "id": "tag:fixture",
+      "in_degree": 1,
+      "modified_at": null,
+      "out_degree": 0,
+      "size": 0,
+      "tags": [],
+      "title": "#fixture",
+      "type": "tag",
+      "vault": "workspace",
+      "workspace_path": null
+    },
+    {
+      "id": "tag:harvis",
+      "in_degree": 1,
+      "modified_at": null,
+      "out_degree": 0,
+      "size": 0,
+      "tags": [],
+      "title": "#harvis",
+      "type": "tag",
+      "vault": "workspace",
+      "workspace_path": null
+    },
+    {
+      "id": "tag:rust",
+      "in_degree": 1,
+      "modified_at": null,
+      "out_degree": 0,
+      "size": 0,
+      "tags": [],
+      "title": "#rust",
+      "type": "tag",
+      "vault": "workspace",
+      "workspace_path": null
+    }
+  ],
+  "read_only": true,
+  "redacted": true,
+  "source": {
+    "config_path": ".harvis/knowledge_graph.toml",
+    "kind": "obsidian-vault",
+    "vault_count": 1,
+    "vaults": [
+      {
+        "name": "workspace",
+        "workspace_path": "."
+      }
+    ]
+  },
+  "stats": {
+    "duration_ms": 1,
+    "edge_count": 6,
+    "missing_count": 0,
+    "node_count": 5,
+    "note_count": 2,
+    "tag_count": 3,
+    "tags": [
+      [
+        "fixture",
+        1
+      ],
+      [
+        "harvis",
+        1
+      ],
+      [
+        "rust",
+        1
+      ]
+    ]
+  },
+  "warnings": [],
+  "workspace_root": null
+}

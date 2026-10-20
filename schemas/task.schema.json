@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harzva.local/harvis/schemas/task.schema.json",
+  "title": "H.A.R.V.I.S. Task",
+  "type": "object",
+  "required": ["task_id", "status", "source", "request"],
+  "additionalProperties": true,
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": ["new", "planned", "blocked", "prepared", "verified", "archived", "unknown"]
+    },
+    "source": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": true,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "request": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "safety": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "note": {
+          "type": "string"
+        },
+        "sensitive_marker_detected": {
+          "type": "boolean"
+        },
+        "requires_human_review": {
+          "type": "boolean"
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
