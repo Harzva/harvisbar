@@ -54,6 +54,7 @@ jobs:
         with:
           node-version: '24'
       - name: Select native toolchain
+        id: native-toolchain
         run: |
           sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
           xcodebuild -version
@@ -67,11 +68,14 @@ jobs:
       - name: Rust tests
         run: cargo test --locked --workspace
       - name: Swift tests
+        if: ${{ !cancelled() && steps.native-toolchain.outcome == 'success' }}
         run: swift test --package-path apps/HarvisBar
       - name: Python contract tests
+        if: ${{ !cancelled() && steps.native-toolchain.outcome == 'success' }}
         run: |
           python -m pip install -r requirements-dev.txt
           python -m unittest discover -s tests -p 'test_*.py'
       - name: DSH bridge tests
+        if: ${{ !cancelled() && steps.native-toolchain.outcome == 'success' }}
         working-directory: plugins/dsh-harvis-bridge
         run: node --test

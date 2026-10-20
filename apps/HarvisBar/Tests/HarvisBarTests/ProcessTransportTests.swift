@@ -236,18 +236,15 @@ final class ProcessTransportTests: XCTestCase {
             .appendingPathComponent("harvis-process-group-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: pidFile) }
         let program = """
-        import os, subprocess, sys, time
-        child = subprocess.Popen(["/bin/sleep", "60"])
-        with open(sys.argv[1], "w") as stream:
-            stream.write(str(os.getpid()) + " " + str(child.pid))
-            stream.flush()
-        time.sleep(60)
+        /bin/sleep 60 &
+        printf '%s %s' "$$" "$!" > "$1"
+        wait
         """
 
         XCTAssertThrowsError(try HarvisVersionProcessRunner.runSynchronously(
             HarvisVersionProcessRequest(
-                executable: "/usr/bin/python3",
-                arguments: ["-c", program, pidFile.path],
+                executable: "/bin/sh",
+                arguments: ["-c", program, "harvis-process-group", pidFile.path],
                 environment: [:],
                 timeout: 0.25,
                 terminationGracePeriod: 0.15,
