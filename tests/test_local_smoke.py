@@ -7,9 +7,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -19,19 +21,32 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SMOKE_SCRIPT = REPO_ROOT / "scripts" / "harvis_local_smoke.sh"
 
 
-STUB_TEMPLATE = r'''#!/usr/bin/env python3
+STUB_TEMPLATE = r"""#!/bin/sh
+'''exec' __PYTHON__ "$0" "$@"
+' '''
 import hashlib
 import http.server
 import json
 import os
 from pathlib import Path
 import signal
+import socketserver
 import sys
 
 MARKER = __MARKER__
 MODE = __MODE__
 MUTATION_PATH = __MUTATION_PATH__
 EXPECTED_FIXTURE_SHA = __EXPECTED_FIXTURE_SHA__
+DIAGNOSTIC_PATH = __DIAGNOSTIC_PATH__
+
+
+def trace(stage):
+    with open(DIAGNOSTIC_PATH, "a", encoding="utf-8") as log:
+        log.write(json.dumps({
+            "marker": MARKER, "stage": stage,
+            "pid": os.getpid(), "pgid": os.getpgid(0),
+            "python": sys.executable, "version": list(sys.version_info[:3]),
+        }) + "\n")
 
 
 def option(name):
@@ -48,6 +63,7 @@ def require_rollback_preseed():
 
 
 command = sys.argv[1]
+trace(command)
 if command == "init-workspace":
     if MODE == "rollback_preseed_required":
         require_rollback_preseed()
@@ -106,6 +122,7 @@ elif command == "http":
         def do_GET(self):
             path = self.path.split("?", 1)[0]
             if path == "/health":
+                trace("http.health")
                 self.send_json(
                     {"ok": True, "data": {"runtime": "rust", "auth_required": True}}
                 )
@@ -143,12 +160,20 @@ elif command == "http":
         def log_message(self, _format, *_args):
             return
 
-    server = http.server.ThreadingHTTPServer((host, port), Handler)
+    class LoopbackHTTPServer(http.server.ThreadingHTTPServer):
+        def server_bind(self):
+            # This numeric-loopback fixture does not need HTTPServer's reverse DNS.
+            socketserver.TCPServer.server_bind(self)
+            self.server_name, self.server_port = self.server_address[:2]
+
+    trace("http.bind.begin")
+    server = LoopbackHTTPServer((host, port), Handler)
+    trace("http.listening")
     signal.signal(signal.SIGTERM, lambda _signum, _frame: sys.exit(0))
     server.serve_forever()
 else:
     raise SystemExit(f"unsupported test command: {command}")
-'''
+"""
 
 
 def sha256(path: Path) -> str:
@@ -167,6 +192,7 @@ class LocalSmokeTests(unittest.TestCase):
             tempfile.mkdtemp(prefix=".local-smoke-test-", dir=REPO_ROOT)
         )
         self.guard_path = self.fixture_root / "formal-runtime.bin"
+        self.diagnostic_path = self.fixture_root / "stub-events.jsonl"
         self.guard_path.write_bytes(b"formal-runtime-baseline\n")
         self.rollback_plugin_root = self.fixture_root / "rollback-plugin"
         (self.rollback_plugin_root / ".codex-plugin").mkdir(parents=True)
@@ -187,10 +213,14 @@ class LocalSmokeTests(unittest.TestCase):
     def make_stub(self, name: str, mode: str = "normal") -> Path:
         path = self.fixture_root / name
         source = (
-            STUB_TEMPLATE.replace("__MARKER__", repr(name))
+            # Shell exec preserves the listener PID and quotes interpreter paths
+            # with spaces; Python treats the launcher as a module docstring.
+            STUB_TEMPLATE.replace("__PYTHON__", shlex.quote(sys.executable))
+            .replace("__MARKER__", repr(name))
             .replace("__MODE__", repr(mode))
             .replace("__MUTATION_PATH__", repr(str(self.guard_path)))
             .replace("__EXPECTED_FIXTURE_SHA__", repr(sha256(self.rollback_fixture)))
+            .replace("__DIAGNOSTIC_PATH__", repr(str(self.diagnostic_path)))
         )
         path.write_text(textwrap.dedent(source), encoding="utf-8")
         path.chmod(0o700)
@@ -226,7 +256,7 @@ class LocalSmokeTests(unittest.TestCase):
             "--guard-path",
             str(self.guard_path),
         ]
-        return subprocess.run(
+        result = subprocess.run(
             command,
             cwd=REPO_ROOT,
             text=True,
@@ -235,6 +265,13 @@ class LocalSmokeTests(unittest.TestCase):
             timeout=45,
             check=False,
         )
+        if result.returncode and self.diagnostic_path.exists():
+            # Only synthetic lifecycle stages and process identity, never HTTP
+            # headers, auth tokens, request bodies, or the surrounding environment.
+            result.stderr += "\nFixture diagnostics:\n" + self.diagnostic_path.read_text(
+                encoding="utf-8"
+            )
+        return result
 
     def test_success_exercises_both_slots_and_finishes_on_rollback(self) -> None:
         candidate = self.make_stub("candidate")
