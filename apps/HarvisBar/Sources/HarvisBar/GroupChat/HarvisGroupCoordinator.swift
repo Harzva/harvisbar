@@ -139,17 +139,27 @@ final class HarvisGroupCoordinator: ObservableObject {
         } catch { lastError = error.localizedDescription; return nil }
     }
 
-    func updateMember(groupID: UUID, memberID: UUID, name: String, role: String) async {
+    @discardableResult
+    func updateMember(groupID: UUID, memberID: UUID, name: String, role: String) async -> Bool {
         do {
-            guard !name.isEmpty, !name.contains("@"), !name.contains(where: \.isWhitespace),
-                  let group = group(groupID), !group.members.contains(where: { $0.id != memberID && $0.name == name }) else {
-                throw HarvisGroupError.invalid("Member name is invalid or already in use.")
+            let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty, !trimmedName.contains("@"), !trimmedName.contains(where: \.isWhitespace) else {
+                throw HarvisGroupError.invalid("Member names must be nonempty, without spaces or @.")
             }
             try await change(groupID) { group in
-                guard let m = group.members.firstIndex(where: { $0.id == memberID }) else { return }
-                group.members[m].name = name; group.members[m].role = role
+                guard let index = group.members.firstIndex(where: { $0.id == memberID }) else {
+                    throw HarvisGroupError.invalid("Member no longer exists in this group.")
+                }
+                guard !group.members.contains(where: { $0.id != memberID && $0.name == trimmedName }) else {
+                    throw HarvisGroupError.invalid("Member name is already in use.")
+                }
+                // Identity, native context and historical attribution remain unchanged.
+                group.members[index].name = trimmedName
+                group.members[index].role = role
             }
-        } catch { lastError = error.localizedDescription }
+            lastError = nil
+            return true
+        } catch { lastError = error.localizedDescription; return false }
     }
 
     @discardableResult

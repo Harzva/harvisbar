@@ -291,6 +291,29 @@ struct HarvisBarApp: App {
 @MainActor
 final class HarvisBarReopenDelegate: NSObject, NSApplicationDelegate {
     static weak var runtimeModel: HarvisRuntimeModel?
+    private var terminationTask: Task<Void, Never>?
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let composer = Self.runtimeModel?.groupComposerState,
+              composer.hasUnsavedChanges else { return .terminateNow }
+        if terminationTask != nil { return .terminateLater }
+        terminationTask = Task { [weak self] in
+            let saved = await composer.flush()
+            var shouldQuit = saved
+            if !saved {
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = "群聊草稿尚未保存"
+                alert.informativeText = composer.lastError ?? "本次输入尚未写入磁盘。取消退出可以保留当前草稿。"
+                alert.addButton(withTitle: "取消退出")
+                alert.addButton(withTitle: "仍然退出")
+                shouldQuit = alert.runModal() == .alertSecondButtonReturn
+            }
+            self?.terminationTask = nil
+            sender.reply(toApplicationShouldTerminate: shouldQuit)
+        }
+        return .terminateLater
+    }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         guard !flag, !HarvisAppMode.isInteractionTest,

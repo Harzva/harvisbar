@@ -9,7 +9,11 @@ final class HarvisGroupWindowController: NSObject, NSWindowDelegate {
 
     func show(runtime: HarvisRuntimeModel, coordinator: HarvisGroupCoordinator) {
         if window == nil {
-            let root = HarvisGroupWindowView(runtime: runtime, coordinator: coordinator)
+            let root = HarvisGroupWindowView(
+                runtime: runtime,
+                coordinator: coordinator,
+                composerState: runtime.groupComposerState
+            )
                 .preferredColorScheme(runtime.theme.preferredColorScheme)
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 1040, height: 740),

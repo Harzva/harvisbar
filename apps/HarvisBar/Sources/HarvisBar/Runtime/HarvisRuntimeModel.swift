@@ -425,6 +425,8 @@ final class HarvisRuntimeModel: ObservableObject {
     }()
     lazy var groupChat = HarvisGroupCoordinator(delivery: groupTaskDelivery,
         store: HarvisGroupStore(url: groupDataDirectory.appendingPathComponent("groups-v1.json")))
+    lazy var groupComposerState = HarvisGroupComposerState(store: HarvisGroupComposerStore(
+        url: groupDataDirectory.appendingPathComponent("composer-v1.json")))
     private var groupActivationTask: Task<Void, Never>?
     let codexThreadSnapshotStore: any CodexThreadSnapshotStoring
     let dshMetaAgentCoordinator: DshMetaAgentCoordinator
@@ -1066,9 +1068,10 @@ final class HarvisRuntimeModel: ObservableObject {
 
     func activateGroupChat() async {
         if let groupActivationTask { await groupActivationTask.value; return }
-        guard !groupChat.isReady || !groupTaskDelivery.isReady else { return }
+        guard !groupChat.isReady || !groupTaskDelivery.isReady || !groupComposerState.isReady else { return }
         let task = Task { [weak self] in
             guard let self else { return }
+            await groupComposerState.activate()
             await groupChat.activate()
             guard groupChat.isReady else { return }
             await groupTaskDelivery.activate(probeExecutablePath: serviceManagerPath)

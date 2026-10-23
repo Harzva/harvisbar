@@ -442,6 +442,79 @@ final class HarvisGroupBackendTests: XCTestCase {
         fixture.group.deactivate(); await fixture.delivery.deactivate()
     }
 
+    func testMemberEditingPersistsOnlyNameAndRoleAndUsesThemOnFutureDispatch() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        let memberID = try await unwrap(fixture.group.addMember(groupID: groupID, name: "旧审查员", role: "旧职责", homePath: fixture.root.path))
+        _ = await fixture.group.addMember(groupID: groupID, name: "实现者", role: "code", homePath: fixture.root.path)
+        await fixture.group.send(groupID: groupID, text: "请旧审查员检查原方案。")
+        let started = await eventually { fixture.delivery.durableQueueItems.first?.state == .running }
+        XCTAssertTrue(started)
+        let originalBinding = try XCTUnwrap(fixture.group.group(groupID)?.members.first { $0.id == memberID }?.binding)
+        let connection = await fixture.delivery.pool.connection(for: originalBinding.homePath)
+        _ = try await connection.request(method: "test/emitCompletion", params: .object(["threadId": .string(originalBinding.threadID), "message": .string("原审查结论")]))
+        let completed = await eventually { fixture.group.group(groupID)?.dispatches.first?.nativeReplyVerified == true }
+        XCTAssertTrue(completed)
+        await fixture.group.forkMember(groupID: groupID, memberID: memberID)
+        let before = try XCTUnwrap(fixture.group.group(groupID))
+        let memberIndex = try XCTUnwrap(before.members.firstIndex { $0.id == memberID })
+        XCTAssertFalse(before.members[memberIndex].previousBindings.isEmpty)
+        XCTAssertGreaterThan(before.members[memberIndex].lastConsumedSequence, 0)
+        XCTAssertTrue(before.messages.contains { $0.memberID == memberID && $0.speaker == "旧审查员" })
+        let queueBefore = fixture.delivery.durableQueueItems
+        let requestsBefore = try Data(contentsOf: fixture.root.appendingPathComponent("request-log.txt"))
+        let duplicate = await fixture.group.updateMember(groupID: groupID, memberID: memberID, name: "实现者", role: "不能保存")
+        XCTAssertFalse(duplicate)
+        XCTAssertNotNil(fixture.group.lastError)
+        let renamed = await fixture.group.updateMember(groupID: groupID, memberID: memberID, name: "  新审查员\n", role: "核对证据并检查回归")
+        XCTAssertTrue(renamed)
+        XCTAssertNil(fixture.group.lastError)
+        var expected = before
+        expected.members[memberIndex].name = "新审查员"
+        expected.members[memberIndex].role = "核对证据并检查回归"
+        XCTAssertEqual(fixture.group.group(groupID), expected, "Editing must preserve the entire group except the selected member's name and role")
+        let persisted = try await HarvisGroupStore(url: fixture.root.appendingPathComponent("groups.json")).load()
+        XCTAssertEqual(persisted, [expected])
+        XCTAssertEqual(fixture.delivery.durableQueueItems, queueBefore)
+        XCTAssertEqual(try Data(contentsOf: fixture.root.appendingPathComponent("request-log.txt")), requestsBefore, "Editing must not issue native RPCs")
+        XCTAssertEqual(HarvisGroupMentions.resolve("请新审查员检查。", members: expected.members), [memberID])
+        XCTAssertEqual(HarvisGroupMentions.resolve("请旧审查员检查。", members: expected.members), [])
+        fixture.delivery.setActivityProbeForTesting(ScriptedCodexActivityProbe([true]))
+        let sent = await fixture.group.send(groupID: groupID, text: "请新审查员复核更新。")
+        XCTAssertTrue(sent)
+        let command = try XCTUnwrap(fixture.delivery.durableQueueItems.last?.command)
+        XCTAssertEqual(command.threadID, expected.members[memberIndex].binding?.threadID)
+        XCTAssertTrue(command.text.contains("name: 新审查员"))
+        XCTAssertTrue(command.text.contains("Role/instructions: 核对证据并检查回归"))
+        XCTAssertEqual(fixture.group.group(groupID)?.dispatches.last?.memberID, memberID)
+        XCTAssertEqual(fixture.delivery.durableQueueItems.first, queueBefore.first)
+        fixture.group.deactivate(); await fixture.delivery.deactivate()
+    }
+
+    func testInvalidMemberEditsRejectDuplicatesAndMissingTargetsWithoutSaving() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        let memberID = try await unwrap(fixture.group.addMember(groupID: groupID, name: "审查员", role: "review", homePath: fixture.root.path))
+        _ = await fixture.group.addMember(groupID: groupID, name: "实现者", role: "code", homePath: fixture.root.path)
+        let before = fixture.group.groups
+        let dataBefore = try Data(contentsOf: fixture.root.appendingPathComponent("groups.json"))
+        for name in [" 实现者 ", " \t\n", "名字 空格", "@名字", "名\n字"] {
+            let result = await fixture.group.updateMember(groupID: groupID, memberID: memberID, name: name, role: "不能保存")
+            XCTAssertFalse(result, name)
+            XCTAssertNotNil(fixture.group.lastError)
+        }
+        let missingMember = await fixture.group.updateMember(groupID: groupID, memberID: UUID(), name: "新名称", role: "不能保存")
+        let missingGroup = await fixture.group.updateMember(groupID: UUID(), memberID: memberID, name: "新名称", role: "不能保存")
+        XCTAssertFalse(missingMember)
+        XCTAssertFalse(missingGroup)
+        XCTAssertEqual(fixture.group.groups, before)
+        XCTAssertEqual(try Data(contentsOf: fixture.root.appendingPathComponent("groups.json")), dataBefore)
+        XCTAssertTrue(fixture.delivery.durableQueueItems.isEmpty)
+        let connectionCount = await fixture.delivery.pool.connectionCount()
+        XCTAssertEqual(connectionCount, 0)
+        fixture.group.deactivate(); await fixture.delivery.deactivate()
+    }
+
     private func unwrap<T>(_ value: T?) throws -> T { try XCTUnwrap(value) }
 
     private func cleanFixture(_ root: URL) {
