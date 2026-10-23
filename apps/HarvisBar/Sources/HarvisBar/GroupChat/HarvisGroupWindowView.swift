@@ -10,11 +10,11 @@ struct HarvisGroupWindowView: View {
     @State private var lastSelectedGroupID: UUID?
     @State private var sheetRoute: HarvisGroupSheetRoute?
     @State private var draft = ""
-    @State private var selectedRecipients: Set<UUID> = []
+    @State private var recipientMode: HarvisGroupRecipientMode = .allMembers
     @State private var permission: HarvisGroupPermission = .discussion
     @State private var visibleMessageCount = 100
     @State private var draftsByGroupID: [UUID: String] = [:]
-    @State private var recipientsByGroupID: [UUID: Set<UUID>] = [:]
+    @State private var recipientModesByGroupID: [UUID: HarvisGroupRecipientMode] = [:]
     @State private var permissionsByGroupID: [UUID: HarvisGroupPermission] = [:]
     @State private var submitErrors: [UUID: String] = [:]
     @State private var isRetryingActivation = false
@@ -66,7 +66,7 @@ struct HarvisGroupWindowView: View {
         .onChange(of: selectedGroupID) { nextGroupID in
             if let previousGroupID = lastSelectedGroupID {
                 draftsByGroupID[previousGroupID] = draft
-                recipientsByGroupID[previousGroupID] = selectedRecipients
+                recipientModesByGroupID[previousGroupID] = recipientMode
                 permissionsByGroupID[previousGroupID] = permission
             }
             lastSelectedGroupID = nextGroupID
@@ -75,11 +75,11 @@ struct HarvisGroupWindowView: View {
             pendingEarlierAnchorID = nil
             if let nextGroupID {
                 draft = draftsByGroupID[nextGroupID] ?? ""
-                selectedRecipients = recipientsByGroupID[nextGroupID] ?? []
+                recipientMode = recipientModesByGroupID[nextGroupID] ?? .allMembers
                 permission = permissionsByGroupID[nextGroupID] ?? .discussion
             } else {
                 draft = ""
-                selectedRecipients = []
+                recipientMode = .allMembers
                 permission = .discussion
             }
         }
@@ -88,6 +88,9 @@ struct HarvisGroupWindowView: View {
         }
         .onChange(of: permission) { value in
             if let selectedGroupID { permissionsByGroupID[selectedGroupID] = value }
+        }
+        .onChange(of: recipientMode) { value in
+            if let selectedGroupID { recipientModesByGroupID[selectedGroupID] = value }
         }
         .sheet(item: $sheetRoute) { route in
             sheetContent(for: route)
@@ -400,7 +403,7 @@ struct HarvisGroupWindowView: View {
                         VStack(spacing: 6) {
                             Text("这里是共享群时间线")
                                 .harvisFont(.subheadline.weight(.semibold))
-                            Text("未 @ 且未选择接收成员的消息只会记录在这里。")
+                            Text("发送消息默认唤醒全体成员，也可 @ 指定成员或选择仅记录。")
                                 .harvisFont(.caption)
                                 .foregroundColor(theme.muted)
                         }
@@ -499,10 +502,25 @@ struct HarvisGroupWindowView: View {
                     if group.members.isEmpty {
                         Text("请先添加群成员")
                     } else {
-                        ForEach(group.members) { member in
-                            Toggle(isOn: recipientBinding(for: member.id)) {
-                                Text("@\(member.name) · \(member.role)")
+                        Button {
+                            setRecipientMode(.allMembers)
+                        } label: {
+                            Label("全体成员", systemImage: recipientMode == .allMembers ? "checkmark" : "person.3")
+                        }
+
+                        Section("指定成员") {
+                            ForEach(group.members) { member in
+                                Toggle(isOn: specificRecipientBinding(for: member.id)) {
+                                    Text("@\(member.name) · \(member.role)")
+                                }
                             }
+                        }
+
+                        Divider()
+                        Button {
+                            setRecipientMode(.recordOnly)
+                        } label: {
+                            Label("仅记录，不唤醒", systemImage: recipientMode == .recordOnly ? "checkmark" : "text.alignleft")
                         }
                     }
                 } label: {
@@ -511,6 +529,8 @@ struct HarvisGroupWindowView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .accessibilityLabel("选择消息接收成员")
+                .accessibilityHint("默认唤醒全体成员；正文有效 @ 会只唤醒提及成员。仅记录模式会忽略正文 @。")
+                .help("默认唤醒全体成员；正文有效 @ 会只唤醒提及成员。仅记录模式会忽略正文 @。")
 
                 Picker("权限", selection: $permission) {
                     Text("讨论 · 只读").tag(HarvisGroupPermission.discussion)
@@ -587,38 +607,90 @@ struct HarvisGroupWindowView: View {
         .overlay(alignment: .top) { Rectangle().fill(theme.line).frame(height: 1) }
     }
 
-    private func recipientBinding(for memberID: UUID) -> Binding<Bool> {
+    private func specificRecipientBinding(for memberID: UUID) -> Binding<Bool> {
         Binding(
-            get: { selectedRecipients.contains(memberID) },
+            get: {
+                guard case let .selected(memberIDs) = recipientMode else { return false }
+                return memberIDs.contains(memberID)
+            },
             set: { selected in
-                var recipients = selectedRecipients
-                if selected { recipients.insert(memberID) }
-                else { recipients.remove(memberID) }
-                selectedRecipients = recipients
-                if let selectedGroupID { recipientsByGroupID[selectedGroupID] = recipients }
+                var memberIDs: Set<UUID>
+                if case let .selected(current) = recipientMode { memberIDs = current }
+                else { memberIDs = [] }
+                if selected { memberIDs.insert(memberID) }
+                else { memberIDs.remove(memberID) }
+                setRecipientMode(memberIDs.isEmpty ? .recordOnly : .selected(memberIDs))
             }
         )
     }
 
+    private func setRecipientMode(_ mode: HarvisGroupRecipientMode) {
+        recipientMode = mode
+        if let selectedGroupID { recipientModesByGroupID[selectedGroupID] = mode }
+    }
+
+    private func explicitRecipients(_ group: HarvisGroupConversation) -> [UUID] {
+        HarvisGroupMentions.resolve(draft, members: group.members)
+    }
+
     private func recipientSummary(_ group: HarvisGroupConversation) -> String {
-        let names = effectiveRecipients(group).compactMap { id in group.members.first(where: { $0.id == id })?.name }
-        return names.isEmpty ? "选择接收成员" : "@" + names.joined(separator: "、@")
+        if case .recordOnly = recipientMode { return "仅记录" }
+
+        let mentions = explicitRecipients(group)
+        if !mentions.isEmpty {
+            return "正文@：" + memberNames(mentions, in: group).map { "@\($0)" }.joined(separator: "、")
+        }
+
+        switch recipientMode {
+        case .allMembers:
+            return group.members.isEmpty ? "暂无成员" : "全体成员"
+        case let .selected(memberIDs):
+            let names = memberNames(Array(memberIDs), in: group)
+            return names.isEmpty ? "仅记录" : names.map { "@\($0)" }.joined(separator: "、")
+        case .recordOnly:
+            return "仅记录"
+        }
     }
 
     private func effectiveRecipients(_ group: HarvisGroupConversation) -> [UUID] {
-        let typed = HarvisGroupMentions.resolve(draft, members: group.members)
-        return group.members.map(\.id).filter { selectedRecipients.contains($0) || typed.contains($0) }
+        if case .recordOnly = recipientMode { return [] }
+        let typed = explicitRecipients(group)
+        if !typed.isEmpty { return typed }
+
+        switch recipientMode {
+        case .allMembers:
+            return group.members.map(\.id)
+        case let .selected(memberIDs):
+            return group.members.map(\.id).filter { memberIDs.contains($0) }
+        case .recordOnly:
+            return []
+        }
+    }
+
+    private func memberNames(_ memberIDs: [UUID], in group: HarvisGroupConversation) -> [String] {
+        group.members.filter { memberIDs.contains($0.id) }.map(\.name)
     }
 
     private func composerHint(_ group: HarvisGroupConversation) -> String {
         let recipients = effectiveRecipients(group)
-        guard !recipients.isEmpty else { return "未 @ 且未选成员：只记录到群时间线，不会唤醒成员。" }
         let permissionLabel = permission == .discussion ? "只读讨论" : "允许写入共享项目"
+        if case .recordOnly = recipientMode {
+            let mentionNote = explicitRecipients(group).isEmpty ? "" : "；正文@不会唤醒成员"
+            return "仅记录到群时间线\(mentionNote) · \(permissionLabel)"
+        }
+        if recipients.isEmpty { return "没有可唤醒成员；消息仅记录到群时间线。" }
+        if !explicitRecipients(group).isEmpty {
+            return "正文@提及优先 · 将唤醒 \(recipientSummary(group)) · \(permissionLabel)"
+        }
+        if case .allMembers = recipientMode {
+            return "将唤醒全体 \(recipients.count) 位成员 · \(permissionLabel)"
+        }
         return "将唤醒 \(recipientSummary(group)) · \(permissionLabel)"
     }
 
     private func send(_ group: HarvisGroupConversation) {
         let originalDraft = draft
+        let originalRecipientMode = recipientMode
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         let recipients = effectiveRecipients(group)
@@ -627,19 +699,25 @@ struct HarvisGroupWindowView: View {
         submitErrors[groupID] = nil
         draft = ""
         draftsByGroupID[groupID] = ""
-        selectedRecipients = []
-        recipientsByGroupID[groupID] = []
+        setRecipientMode(.allMembers)
         Task {
-            let persisted = await coordinator.send(groupID: groupID, text: text, mentionedMemberIDs: recipients, permission: sendPermission)
+            let persisted = await coordinator.send(
+                groupID: groupID,
+                text: text,
+                mentionedMemberIDs: recipients,
+                permission: sendPermission,
+                resolveTextMentions: false
+            )
             if !persisted {
-                if selectedGroupID == groupID && draft.isEmpty {
-                    draft = originalDraft
+                if (draftsByGroupID[groupID] ?? "").isEmpty {
                     draftsByGroupID[groupID] = originalDraft
-                    if selectedRecipients.isEmpty {
-                        selectedRecipients = Set(recipients)
-                        recipientsByGroupID[groupID] = Set(recipients)
+                    let shouldRestoreMode = (recipientModesByGroupID[groupID] ?? .allMembers) == .allMembers
+                    if shouldRestoreMode { recipientModesByGroupID[groupID] = originalRecipientMode }
+                    if selectedGroupID == groupID {
+                        draft = originalDraft
+                        if shouldRestoreMode { setRecipientMode(originalRecipientMode) }
+                        composerFocused = true
                     }
-                    composerFocused = true
                     submitErrors[groupID] = "消息未保存，草稿已恢复；请检查群聊状态后重试。"
                 } else {
                     submitErrors[groupID] = "上一条消息未保存；当前编辑内容已保留。"
@@ -695,7 +773,8 @@ struct HarvisGroupWindowView: View {
                 coordinator: coordinator,
                 groupID: groupID,
                 member: coordinator.group(groupID)?.members.first { $0.id == memberID },
-                theme: theme
+                theme: theme,
+                onError: { message in submitErrors[groupID] = message }
             )
         }
     }
@@ -1402,6 +1481,7 @@ private struct HarvisGroupHandoffSheet: View {
     let groupID: UUID
     let member: HarvisGroupMember?
     let theme: HarvisTheme
+    let onError: (String?) -> Void
 
     @State private var targetHomePath = ""
     @State private var isHandingOff = false
@@ -1487,8 +1567,17 @@ private struct HarvisGroupHandoffSheet: View {
             let updated = coordinator.group(groupID)?.members.first(where: { $0.id == member.id })?.binding
             let succeeded = updated?.homePath == CodexGroupAdapter.normalize(targetHomePath) && updated?.threadID != oldThreadID
             isHandingOff = false
-            if succeeded { dismiss() }
-            else { errorMessage = "交接没有完成。请确认目标账号已登录，且该成员没有未完成任务。" }
+            if succeeded {
+                onError(nil)
+                dismiss()
+            } else {
+                let detail = coordinator.lastError?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let message: String
+                if let detail, !detail.isEmpty { message = "交接失败：\(detail)" }
+                else { message = "交接没有完成。请确认目标账号已登录，且该成员没有未完成任务。" }
+                errorMessage = message
+                onError(message)
+            }
         }
     }
 }
@@ -1717,4 +1806,10 @@ private struct HarvisGroupTimelineMessageFramesPreferenceKey: PreferenceKey {
     static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
         value.merge(nextValue(), uniquingKeysWith: { _, next in next })
     }
+}
+
+private enum HarvisGroupRecipientMode: Equatable {
+    case allMembers
+    case selected(Set<UUID>)
+    case recordOnly
 }

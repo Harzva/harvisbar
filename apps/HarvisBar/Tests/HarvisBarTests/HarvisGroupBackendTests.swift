@@ -356,6 +356,50 @@ final class HarvisGroupBackendTests: XCTestCase {
         fixture.group.deactivate(); await fixture.delivery.deactivate()
     }
 
+    func testRecordOnlyDoesNotDispatchTextMentions() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        _ = await fixture.group.addMember(groupID: groupID, name: "A", role: "review", homePath: fixture.root.path)
+        let persisted = await fixture.group.send(groupID: groupID, text: "@A record this mention without waking anyone", mentionedMemberIDs: [], resolveTextMentions: false)
+        XCTAssertTrue(persisted)
+        XCTAssertEqual(fixture.group.group(groupID)?.messages.count, 1)
+        XCTAssertTrue(fixture.group.group(groupID)?.messages.first?.recipientMemberIDs.isEmpty == true)
+        XCTAssertTrue(fixture.group.group(groupID)?.dispatches.isEmpty == true)
+        XCTAssertTrue(fixture.delivery.durableQueueItems.isEmpty)
+        let connectionCount = await fixture.delivery.pool.connectionCount()
+        XCTAssertEqual(connectionCount, 0, "Record-only messages must not even initialize an execution connection")
+        fixture.group.deactivate(); await fixture.delivery.deactivate()
+    }
+
+    func testNeverDispatchedEmptyHandoffCanChangeAccountAfterServerRestartButCannotFakeFork() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        let memberID = try await unwrap(fixture.group.addMember(groupID: groupID, name: "A", role: "review", homePath: fixture.root.path))
+        await fixture.group.handoff(groupID: groupID, memberID: memberID, targetHomePath: fixture.root.path)
+        let empty = try XCTUnwrap(fixture.group.group(groupID)?.members[0].binding)
+        XCTAssertEqual(empty.lineage, "context-handoff")
+        XCTAssertTrue(fixture.group.group(groupID)?.dispatches.isEmpty == true)
+        let connection = await fixture.delivery.pool.connection(for: empty.homePath)
+        await connection.stop()
+        await fixture.group.forkMember(groupID: groupID, memberID: memberID)
+        XCTAssertEqual(fixture.group.group(groupID)?.members[0].binding, empty)
+        XCTAssertTrue(fixture.group.lastError?.contains("thread not loaded") == true)
+        let target = fixture.root.appendingPathComponent("second-home").path
+        await fixture.group.handoff(groupID: groupID, memberID: memberID, targetHomePath: target)
+        let replacement = try XCTUnwrap(fixture.group.group(groupID)?.members[0].binding)
+        XCTAssertNil(fixture.group.lastError)
+        XCTAssertEqual(replacement.homePath, target)
+        XCTAssertEqual(replacement.lineage, "context-handoff")
+        XCTAssertEqual(replacement.predecessorThreadID, empty.threadID)
+        XCTAssertTrue(fixture.group.group(groupID)?.members[0].previousBindings.contains(empty) == true)
+        XCTAssertTrue(fixture.group.group(groupID)?.dispatches.isEmpty == true)
+        XCTAssertTrue(fixture.delivery.durableQueueItems.isEmpty)
+        let log = try String(contentsOf: fixture.root.appendingPathComponent("request-log.txt"), encoding: .utf8)
+        XCTAssertFalse(log.split(separator: "\n").contains("turn/start"))
+        XCTAssertFalse(log.split(separator: "\n").contains("thread/fork"))
+        fixture.group.deactivate(); await fixture.delivery.deactivate()
+    }
+
     private func unwrap<T>(_ value: T?) throws -> T { try XCTUnwrap(value) }
 
     private func cleanFixture(_ root: URL) {
@@ -410,6 +454,7 @@ final class HarvisGroupBackendTests: XCTestCase {
                 elif method == "thread/start" or method == "thread/fork":
         """)
         script = script.replacingOccurrences(of: "        elif method == \"thread/turns/list\":", with: "        elif method == \"thread/turns/list\":\n            history_count += 1\n            if fail_history:\n                send({\"id\":request_id,\"error\":{\"code\":-32000,\"message\":\"history unavailable\"}})\n                continue")
+        script = script.replacingOccurrences(of: "        elif method == \"thread/read\":\n            thread_id = params[\"threadId\"]", with: "        elif method == \"thread/read\":\n            thread_id = params[\"threadId\"]\n            if thread_id not in thread_versions:\n                send({\"id\":request_id,\"error\":{\"code\":-32600,\"message\":\"thread not loaded: \" + thread_id}})\n                continue")
         script = script.replacingOccurrences(of: "thread_id = \"thread-handoff-\" + str(thread_counter)", with: "thread_id = \"thread-handoff-\" + str(os.getpid()) + \"-\" + str(thread_counter)")
         script = script.replacingOccurrences(of: "thread_counter = 0", with: "thread_counter = 0\nthread_sandboxes = {}\ntest_identity = None\nfail_history = False\nhistory_count = 0\nidentity_reads = 0\nidentity_gate_at = -1")
         script = script.replacingOccurrences(of: "        elif method == \"thread/resume\":", with: "        elif method == \"thread/resume\":\n            params[\"sandbox\"] = thread_sandboxes.get(params[\"threadId\"], \"read-only\")\n            if not thread_turns.get(params[\"threadId\"]):\n                send({\"id\":request_id,\"error\":{\"code\":-32600,\"message\":\"no rollout found for thread id\"}})\n                continue")

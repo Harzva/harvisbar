@@ -153,10 +153,11 @@ final class HarvisGroupCoordinator: ObservableObject {
     }
 
     @discardableResult
-    func send(groupID: UUID, text: String, mentionedMemberIDs: [UUID] = [], permission: HarvisGroupPermission = .discussion) async -> Bool {
+    func send(groupID: UUID, text: String, mentionedMemberIDs: [UUID] = [], permission: HarvisGroupPermission = .discussion, resolveTextMentions: Bool = true) async -> Bool {
         guard isReady, delivery.isReady else { lastError = "Runtime is not ready."; return false }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let group = group(groupID) else { return false }
-        let recipients = Array(Set(mentionedMemberIDs + HarvisGroupMentions.resolve(text, members: group.members)))
+        let textRecipients = resolveTextMentions ? HarvisGroupMentions.resolve(text, members: group.members) : []
+        let recipients = Array(Set(mentionedMemberIDs + textRecipients))
         guard recipients.allSatisfy({ id in group.members.contains { $0.id == id } }) else { lastError = "Unknown member mention."; return false }
         guard permission != .workspaceWrite || recipients.count <= 1 else {
             lastError = "同一项目每次只允许一名写入成员；并行写入请使用独立项目或 Git worktree。"; return false
@@ -343,8 +344,19 @@ final class HarvisGroupCoordinator: ObservableObject {
             }
             if let current = member.binding {
                 let probe = CodexGroupNativeActivityProbe(pool: delivery.pool)
-                guard try await !probe.isThreadRunning(homePath: current.homePath, threadID: current.threadID) else {
-                    throw HarvisGroupError.invalid("Original member thread reports an active turn. Stop it before handoff or fork.")
+                do {
+                    guard try await !probe.isThreadRunning(homePath: current.homePath, threadID: current.threadID) else {
+                        throw HarvisGroupError.invalid("Original member thread reports an active turn. Stop it before handoff or fork.")
+                    }
+                } catch let error as CodexAppServerError {
+                    // An owned empty handoff can have no disk rollout after its server exits.
+                    // Missing metadata never means idle for a used/uncertain binding, and
+                    // cannot substitute for native fork. This exception only permits a
+                    // new explicit account handoff from a never-dispatched empty binding.
+                    guard !fork, current.lineage == "context-handoff",
+                          !hasDispatchReference(current),
+                          case let .rpc(code, message) = error, code == -32600,
+                          message.trimmingCharacters(in: .whitespacesAndNewlines) == "thread not loaded: \(current.threadID)" else { throw error }
                 }
             }
             let path = CodexGroupAdapter.normalize(homePath)
@@ -365,6 +377,7 @@ final class HarvisGroupCoordinator: ObservableObject {
                 group.messages.append(HarvisGroupMessage(sequence: group.lastSequence, memberID: memberID,
                     speaker: "系统", text: fork ? "\(member.name)：原生分叉，保留来源会话。" : "\(member.name)：新账号独立会话；下一次 @ 将交接共享群记录，未迁移私有原生历史。", source: binding))
             }
+            lastError = nil
         } catch { lastError = error.localizedDescription }
     }
 
@@ -492,6 +505,12 @@ final class HarvisGroupCoordinator: ObservableObject {
                 speaker: group.members.first(where: { $0.id == dispatch.memberID })?.name ?? "成员",
                 text: text, dispatchID: dispatch.id, source: dispatch.binding)
             group.messages.append(message); group.dispatches[dispatchIndex].responseMessageID = message.id
+        }
+    }
+
+    private func hasDispatchReference(_ binding: HarvisGroupBinding) -> Bool {
+        groups.contains { group in
+            group.dispatches.contains { $0.binding?.homePath == binding.homePath && $0.binding?.threadID == binding.threadID }
         }
     }
 
