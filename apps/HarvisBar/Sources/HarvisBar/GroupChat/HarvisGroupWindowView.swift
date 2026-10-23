@@ -403,7 +403,7 @@ struct HarvisGroupWindowView: View {
                         VStack(spacing: 6) {
                             Text("这里是共享群时间线")
                                 .harvisFont(.subheadline.weight(.semibold))
-                            Text("发送消息默认唤醒全体成员，也可 @ 指定成员或选择仅记录。")
+                            Text("发送消息默认唤醒全体成员；写出成员名字可定向指派，也可选择仅记录。")
                                 .harvisFont(.caption)
                                 .foregroundColor(theme.muted)
                         }
@@ -529,8 +529,8 @@ struct HarvisGroupWindowView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .accessibilityLabel("选择消息接收成员")
-                .accessibilityHint("默认唤醒全体成员；正文有效 @ 会只唤醒提及成员。仅记录模式会忽略正文 @。")
-                .help("默认唤醒全体成员；正文有效 @ 会只唤醒提及成员。仅记录模式会忽略正文 @。")
+                .accessibilityHint("默认唤醒全体成员；正文出现成员名字时，只唤醒这些成员，无需输入 @。仅记录模式不会唤醒成员。")
+                .help("默认唤醒全体成员；正文出现成员名字时，只唤醒这些成员，无需输入 @。仅记录模式不会唤醒成员。")
 
                 Picker("权限", selection: $permission) {
                     Text("讨论 · 只读").tag(HarvisGroupPermission.discussion)
@@ -553,7 +553,7 @@ struct HarvisGroupWindowView: View {
 
             ZStack(alignment: .topLeading) {
                 if draft.isEmpty {
-                    Text("输入群聊内容，可直接写 @成员…")
+                    Text("输入群聊内容，写出成员名字即可指派…")
                         .harvisFont(.body)
                         .foregroundColor(theme.muted.opacity(0.9))
                         .padding(.leading, 6)
@@ -638,7 +638,7 @@ struct HarvisGroupWindowView: View {
 
         let mentions = explicitRecipients(group)
         if !mentions.isEmpty {
-            return "正文@：" + memberNames(mentions, in: group).map { "@\($0)" }.joined(separator: "、")
+            return "指派给：" + memberNames(mentions, in: group).joined(separator: "、")
         }
 
         switch recipientMode {
@@ -646,7 +646,7 @@ struct HarvisGroupWindowView: View {
             return group.members.isEmpty ? "暂无成员" : "全体成员"
         case let .selected(memberIDs):
             let names = memberNames(Array(memberIDs), in: group)
-            return names.isEmpty ? "仅记录" : names.map { "@\($0)" }.joined(separator: "、")
+            return names.isEmpty ? "仅记录" : names.joined(separator: "、")
         case .recordOnly:
             return "仅记录"
         }
@@ -675,12 +675,12 @@ struct HarvisGroupWindowView: View {
         let recipients = effectiveRecipients(group)
         let permissionLabel = permission == .discussion ? "只读讨论" : "允许写入共享项目"
         if case .recordOnly = recipientMode {
-            let mentionNote = explicitRecipients(group).isEmpty ? "" : "；正文@不会唤醒成员"
+            let mentionNote = explicitRecipients(group).isEmpty ? "" : "；提到名字也不执行"
             return "仅记录到群时间线\(mentionNote) · \(permissionLabel)"
         }
         if recipients.isEmpty { return "没有可唤醒成员；消息仅记录到群时间线。" }
         if !explicitRecipients(group).isEmpty {
-            return "正文@提及优先 · 将唤醒 \(recipientSummary(group)) · \(permissionLabel)"
+            return "将唤醒 \(memberNames(recipients, in: group).joined(separator: "、")) · \(permissionLabel)"
         }
         if case .allMembers = recipientMode {
             return "将唤醒全体 \(recipients.count) 位成员 · \(permissionLabel)"
@@ -1388,7 +1388,7 @@ private struct HarvisAddMemberSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
             Text("添加群成员").harvisFont(.title3.weight(.semibold))
-            Text("名称用于 @ 提及，必须在此群内唯一；同一个账号可以加入多位成员。")
+            Text("在正文写出名字即可指派，无需 @。名字须在群内唯一；同一账号可加入多位成员。")
                 .harvisFont(.caption)
                 .foregroundColor(theme.muted)
             VStack(alignment: .leading, spacing: 5) {

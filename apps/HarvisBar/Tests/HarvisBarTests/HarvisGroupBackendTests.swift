@@ -11,6 +11,48 @@ final class HarvisGroupBackendTests: XCTestCase {
         XCTAssertEqual(HarvisGroupMentions.resolve("@alice2", members: [alice]), [])
     }
 
+    func testBareChineseNamesMatchNaturalSentencesMultipleMembersAndStableOrder() {
+        let architect = HarvisGroupMember(name: "架构师", role: "design", homePath: "/a")
+        let implementer = HarvisGroupMember(name: "实现者", role: "code", homePath: "/b")
+        let reviewer = HarvisGroupMember(name: "审查员", role: "review", homePath: "/c")
+        XCTAssertEqual(HarvisGroupMentions.resolve("请实现者先动手，架构师看看设计，再由实现者确认。", members: [architect, implementer, reviewer]), [architect.id, implementer.id])
+        XCTAssertEqual(HarvisGroupMentions.resolve("@架构师，请实现者一起讨论。", members: [architect, implementer]), [architect.id, implementer.id])
+    }
+
+    func testEnglishAndNumericNamesRequireIdentifierBoundaries() {
+        let ann = HarvisGroupMember(name: "Ann", role: "review", homePath: "/a")
+        let bob = HarvisGroupMember(name: "Bob", role: "code", homePath: "/b")
+        let number = HarvisGroupMember(name: "007", role: "check", homePath: "/c")
+        let developer = HarvisGroupMember(name: "dev_2", role: "code", homePath: "/d")
+        let members = [ann, bob, number, developer]
+        XCTAssertEqual(HarvisGroupMentions.resolve("planner Annual Ann2 joAnn _Ann Ann_Bob 1007 007x x007 dev_20", members: members), [])
+        XCTAssertEqual(HarvisGroupMentions.resolve("请Ann复核，Bob/007一起看；@dev_2确认。", members: members), members.map(\.id))
+    }
+
+    func testLongestOverlappingNameWinsWithoutWakingPrefixOrInteriorMembers() {
+        let short = HarvisGroupMember(name: "小王", role: "review", homePath: "/a")
+        let long = HarvisGroupMember(name: "小王同学", role: "code", homePath: "/b")
+        let interior = HarvisGroupMember(name: "王同学", role: "check", homePath: "/c")
+        let members = [short, long, interior]
+        XCTAssertEqual(HarvisGroupMentions.resolve("请小王同学先看方案。", members: members), [long.id])
+        XCTAssertEqual(HarvisGroupMentions.resolve("@小王同学看完后，请小王补充。", members: members), [short.id, long.id])
+    }
+
+    func testCoordinatorDispatchesBareNameToOnlyItsStableMemberID() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        fixture.delivery.setActivityProbeForTesting(ScriptedCodexActivityProbe([true]))
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        let reviewer = try await unwrap(fixture.group.addMember(groupID: groupID, name: "审查员", role: "review", homePath: fixture.root.path))
+        let writer = try await unwrap(fixture.group.addMember(groupID: groupID, name: "实现者", role: "code", homePath: fixture.root.path))
+        let persisted = await fixture.group.send(groupID: groupID, text: "请审查员看看这份方案。")
+        XCTAssertTrue(persisted)
+        XCTAssertEqual(fixture.group.group(groupID)?.messages.first?.recipientMemberIDs, [reviewer])
+        XCTAssertEqual(fixture.group.group(groupID)?.dispatches.map(\.memberID), [reviewer])
+        XCTAssertEqual(fixture.delivery.durableQueueItems.count, 1)
+        XCTAssertNil(fixture.group.group(groupID)?.members.first { $0.id == writer }?.binding)
+        fixture.group.deactivate(); await fixture.delivery.deactivate()
+    }
+
     func testCrashRecoveryPreservesUnknownWithoutResubmitting() async throws {
         let root = try makeRoot(); defer { try? FileManager.default.removeItem(at: root) }
         let store = HarvisGroupStore(url: root.appendingPathComponent("groups.json"))
