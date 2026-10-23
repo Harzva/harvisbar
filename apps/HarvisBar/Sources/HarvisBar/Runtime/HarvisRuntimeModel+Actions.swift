@@ -735,6 +735,11 @@ extension HarvisRuntimeModel {
         HarvisCodexChatWindowController.shared.show(model: self)
     }
 
+    func openCodexGroupChat() {
+        HarvisGroupWindowController.shared.show(runtime: self, coordinator: groupChat)
+        Task { await activateGroupChat() }
+    }
+
     func toggleCodexChatWindowPin() {
         isCodexChatWindowPinned.toggle()
     }

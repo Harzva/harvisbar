@@ -3,6 +3,24 @@ import XCTest
 @testable import HarvisBar
 
 final class CodexAppServerConnectionTests: XCTestCase {
+    func testLargeNativeHistoryResponsePreservesChunkAndUnicodeOrder() async throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let connection = CodexAppServerConnection(homePath: fixture.home.path,
+            executableURL: URL(fileURLWithPath: "/usr/bin/python3"),
+            executableArgumentsPrefix: [fixture.executable.path], requestTimeout: 5)
+        let expected = (0..<12_000).map { "第\($0)条证据 αβγ\n" }.joined()
+        _ = try await connection.request(method: "test/emitCompletion", params: .object([
+            "threadId": .string("thread-a"), "message": .string(expected)]))
+        for _ in 0..<3 {
+            let response = try await connection.request(method: "thread/turns/list", params: .object([
+                "threadId": .string("thread-a"), "itemsView": .string("full")]))
+            let actual = response["data"]?.arrayValue?.first?["items"]?.arrayValue?.first?["text"]?.stringValue
+            XCTAssertTrue(actual == expected, "Large native history bytes must remain ordered and complete")
+        }
+        await connection.stop()
+    }
+
     func testInitializeHandshakeUsesInjectedClientVersion() async throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }

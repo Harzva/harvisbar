@@ -24,6 +24,15 @@ extension HarvisPopoverView {
                 .tint(theme.accent)
                 .help("打开 Codex Chat 管理器与 Attach 控制")
             }
+            Button {
+                model.openCodexGroupChat()
+            } label: {
+                Label("成员群聊", systemImage: "person.3")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .font(.caption)
+            .buttonStyle(.bordered)
+            .help("在共享项目中 @成员，使用不同 Codex 账号讨论和协作")
         }
     }
 
@@ -207,7 +216,8 @@ extension HarvisPopoverView {
                     .font(.caption2)
                     .foregroundColor(theme.muted)
             } else {
-                VStack(alignment: .leading, spacing: 4) {
+                // Refreshing a Home must not remeasure every offscreen chat.
+                LazyVStack(alignment: .leading, spacing: 4) {
                     if !model.runningCodexThreads.isEmpty {
                         codexThreadGroupLabel("Running", count: model.runningCodexThreads.count, color: theme.positive, animated: true)
                         ForEach(model.runningCodexThreads) { thread in
@@ -661,7 +671,8 @@ extension HarvisPopoverView {
     func codexThreadGroupLabel(_ title: String, count: Int, color: Color, animated: Bool) -> some View {
         HStack(spacing: 5) {
             if animated {
-                PulsingStatusDot(color: color)
+                // Persistent menu rows must not each drive a 30 Hz timeline.
+                PulsingStatusDot(color: color, animates: false)
                     .frame(width: 10, height: 10)
             } else {
                 Circle()
@@ -685,7 +696,7 @@ extension HarvisPopoverView {
         } label: {
             HStack(alignment: .top, spacing: 6) {
                 if thread.running {
-                    PulsingStatusDot(color: theme.positive)
+                    PulsingStatusDot(color: theme.positive, animates: false)
                 } else {
                     Circle()
                         .fill(thread.archived ? theme.muted : theme.recentStatus)

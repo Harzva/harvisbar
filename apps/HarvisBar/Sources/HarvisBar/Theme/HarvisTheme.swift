@@ -266,9 +266,27 @@ extension Color {
 }
 
 struct PulsingStatusDot: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let color: Color
+    var animates = true
+
+#if HARVIS_PERFORMANCE_FIXTURE
+    private static let fixtureMotionMode: String? = {
+        guard HarvisAppMode.isPerformanceFixture else { return nil }
+        return ProcessInfo.processInfo.environment["HARVIS_PERFORMANCE_MOTION_MODE"]
+    }()
+#endif
+
+    private var reduceMotion: Bool {
+#if HARVIS_PERFORMANCE_FIXTURE
+        if let mode = Self.fixtureMotionMode {
+            if mode == "baseline" { return accessibilityReduceMotion }
+            if mode == "reduced" { return true }
+        }
+#endif
+        return !animates || accessibilityReduceMotion
+    }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in

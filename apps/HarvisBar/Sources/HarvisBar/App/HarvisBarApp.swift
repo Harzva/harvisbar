@@ -19,7 +19,23 @@ enum HarvisAppMode {
     }
 
     static var isInteractionTest: Bool {
-        isLegacyInteractionTest || isVersionFixture
+        isLegacyInteractionTest || isVersionFixture || isPerformanceFixture || isGroupFixture
+    }
+
+    static var isGroupFixture: Bool {
+#if DEBUG
+        HarvisGroupUIFixture.isRequested(arguments: ProcessInfo.processInfo.arguments)
+#else
+        false
+#endif
+    }
+
+    static var isPerformanceFixture: Bool {
+#if HARVIS_PERFORMANCE_FIXTURE
+        HarvisPopoverPerformanceFixture.isRequested(arguments: ProcessInfo.processInfo.arguments)
+#else
+        false
+#endif
     }
 
     static var isDesktopBundle: Bool {
@@ -102,7 +118,7 @@ struct HarvisBarApp: App {
         let isVersionFixtureMode = false
         let versionFixtureDefaults: UserDefaults? = nil
 #endif
-        let isUITestMode = isLegacyUITestMode || isVersionFixtureMode
+        let isUITestMode = HarvisAppMode.isInteractionTest
         let bootRoute = HarvisAppBootRoute.resolve(
             legacyInteractionTest: isLegacyUITestMode,
             isolatedVersionTest: isVersionFixtureMode
@@ -115,7 +131,7 @@ struct HarvisBarApp: App {
             Darwin.exit(invocation.exitCode)
         }
 
-        if !isVersionFixtureMode,
+        if !HarvisAppMode.isInteractionTest,
            let existingApplication = HarvisSingleInstance.existingApplication() {
             existingApplication.activate(options: [.activateIgnoringOtherApps])
             Darwin.exit(EXIT_SUCCESS)
@@ -150,6 +166,23 @@ struct HarvisBarApp: App {
                 forName: "local.harzva.harvisbar.interaction-test"
             )
             runtimeModel = HarvisRuntimeModel(defaults: isolatedDefaults)
+        } else if HarvisAppMode.isGroupFixture {
+#if DEBUG
+            do {
+                runtimeModel = try HarvisGroupUIFixture.makeRuntime(arguments: arguments)
+            } catch {
+                FileHandle.standardError.write(Data("Harvis group fixture boot rejected.\n".utf8))
+                Darwin.exit(EXIT_FAILURE)
+            }
+#else
+            runtimeModel = HarvisRuntimeModel()
+#endif
+        } else if HarvisAppMode.isPerformanceFixture {
+#if HARVIS_PERFORMANCE_FIXTURE
+            runtimeModel = HarvisPopoverPerformanceFixture.makeRuntime()
+#else
+            runtimeModel = HarvisRuntimeModel()
+#endif
         } else {
             runtimeModel = HarvisRuntimeModel()
         }
@@ -160,6 +193,18 @@ struct HarvisBarApp: App {
         )
 
         DispatchQueue.main.async {
+#if DEBUG
+            if HarvisAppMode.isGroupFixture {
+                runtimeModel.openCodexGroupChat()
+                return
+            }
+#endif
+#if HARVIS_PERFORMANCE_FIXTURE
+            if HarvisAppMode.isPerformanceFixture {
+                HarvisPopoverPerformanceFixture.show(runtime: runtimeModel)
+                return
+            }
+#endif
 #if HARVIS_VERSION_UI_TESTING
             if let versionFixtureProvider {
                 if versionFixtureProvider.isTaskProgressFixture {
@@ -187,6 +232,9 @@ struct HarvisBarApp: App {
             }
             if arguments.contains("--open-codex-manager") {
                 runtimeModel.openCodexChatManager()
+            }
+            if arguments.contains("--open-codex-group-chat") {
+                runtimeModel.openCodexGroupChat()
             }
             if arguments.contains("--open-unified-versions") {
                 UnifiedVersionCatalogWindowController.shared.show(runtime: runtimeModel)
@@ -223,6 +271,11 @@ struct HarvisBarApp: App {
             EmptyView()
         }
         .commands {
+            CommandMenu("Codex") {
+                Button("成员群聊") { model.openCodexGroupChat() }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
+                Button("会话管理") { model.openCodexChatManager() }
+            }
             CommandMenu("DSH") {
                 Button("DSH 快捷管理") {
                     HarvisDshQuickWindowController.shared.show(model: model)

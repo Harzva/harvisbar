@@ -409,6 +409,23 @@ final class HarvisRuntimeModel: ObservableObject {
     let codexPreferences: CodexThreadPreferences
     let projectOrganizationStore: ManagedProjectOrganizationStore
     let codexTaskDelivery: CodexTaskDeliveryCoordinator
+    let groupDataDirectory: URL
+    // Group execution has its own durable queue and explicit ChatGPT profile
+    // environment. Its pool still multiplexes all members in the same home.
+    lazy var groupTaskDelivery: CodexTaskDeliveryCoordinator = {
+        let base = groupDataDirectory
+        let pool = CodexAppServerPool(executableURL: CodexExecutableLocator.resolve(),
+            environmentPolicy: .chatGPTProfile)
+        return CodexTaskDeliveryCoordinator(
+            store: CodexTaskQueueStore(queueURL: base.appendingPathComponent("delivery-v1.json")),
+            pool: pool,
+            handoffStore: CodexConversationHandoffStore(storeURL: base.appendingPathComponent("legacy-handoffs-v1.json")),
+            activityProbe: CodexGroupNativeActivityProbe(pool: pool)
+        )
+    }()
+    lazy var groupChat = HarvisGroupCoordinator(delivery: groupTaskDelivery,
+        store: HarvisGroupStore(url: groupDataDirectory.appendingPathComponent("groups-v1.json")))
+    private var groupActivationTask: Task<Void, Never>?
     let codexThreadSnapshotStore: any CodexThreadSnapshotStoring
     let dshMetaAgentCoordinator: DshMetaAgentCoordinator
     let managedConversationInsights: ManagedConversationInsightCoordinator
@@ -454,6 +471,7 @@ final class HarvisRuntimeModel: ObservableObject {
 
     init(
         defaults: UserDefaults = .standard,
+        groupDataDirectory: URL? = nil,
         codexPreferences: CodexThreadPreferences? = nil,
         codexTaskDelivery: CodexTaskDeliveryCoordinator? = nil,
         codexThreadSnapshotStore: (any CodexThreadSnapshotStoring)? = nil,
@@ -466,6 +484,8 @@ final class HarvisRuntimeModel: ObservableObject {
     ) {
         let delivery = codexTaskDelivery ?? CodexTaskDeliveryCoordinator()
         self.defaults = defaults
+        self.groupDataDirectory = groupDataDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("HarvisBar/GroupChat", isDirectory: true)
         self.codexPreferences = codexPreferences ?? CodexThreadPreferences(defaults: defaults)
         self.projectOrganizationStore = ManagedProjectOrganizationStore(defaults: defaults)
         self.codexTaskDelivery = delivery
@@ -1014,6 +1034,7 @@ final class HarvisRuntimeModel: ObservableObject {
                 await codexTaskDelivery.activate(
                     probeExecutablePath: serviceManagerPath
                 )
+                await activateGroupChat()
                 await activateConversationManagement()
             },
             discoverManagedChats: { [weak self] in
@@ -1041,6 +1062,22 @@ final class HarvisRuntimeModel: ObservableObject {
                     await self.refreshDshThreadsIfDue()
                 }
             }
+    }
+
+    func activateGroupChat() async {
+        if let groupActivationTask { await groupActivationTask.value; return }
+        guard !groupChat.isReady || !groupTaskDelivery.isReady else { return }
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await groupChat.activate()
+            guard groupChat.isReady else { return }
+            await groupTaskDelivery.activate(probeExecutablePath: serviceManagerPath)
+            guard groupTaskDelivery.isReady else { return }
+            await groupChat.recover()
+        }
+        groupActivationTask = task
+        await task.value
+        groupActivationTask = nil
     }
 
     func refreshAll() async {

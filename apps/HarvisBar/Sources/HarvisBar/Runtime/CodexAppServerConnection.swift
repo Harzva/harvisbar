@@ -10,6 +10,7 @@ enum CodexExecutableLocator {
 
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let fixedCandidates = [
+            "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
             "\(home)/.local/bin/codex",
             "/Applications/ChatGPT.app/Contents/Resources/codex",
             "/opt/homebrew/bin/codex",
@@ -44,11 +45,15 @@ actor CodexAppServerConnection {
     private let executableArgumentsPrefix: [String]
     private let requestTimeout: TimeInterval
     private let clientVersion: String
+    private let environmentPolicy: CodexProfileEnvironmentPolicy
+    private var profileFingerprint: String?
 
     private var process: Process?
     private var standardInput: FileHandle?
     private var standardOutput: FileHandle?
     private var standardError: FileHandle?
+    private var outputReader: Task<Void, Never>?
+    private var errorReader: Task<Void, Never>?
     private var outputBuffer = Data()
     private var errorBuffer = Data()
     private var activeConnectionID: UUID?
@@ -66,7 +71,8 @@ actor CodexAppServerConnection {
         executableURL: URL? = nil,
         executableArgumentsPrefix: [String] = [],
         requestTimeout: TimeInterval = 30,
-        clientVersion: String = CodexAppServerConnection.bundleClientVersion()
+        clientVersion: String = CodexAppServerConnection.bundleClientVersion(),
+        environmentPolicy: CodexProfileEnvironmentPolicy = .inherited
     ) {
         self.homePath = URL(fileURLWithPath: homePath, isDirectory: true)
             .standardizedFileURL
@@ -74,6 +80,7 @@ actor CodexAppServerConnection {
         explicitExecutableURL = executableURL
         self.executableArgumentsPrefix = executableArgumentsPrefix
         self.requestTimeout = requestTimeout
+        self.environmentPolicy = environmentPolicy
         let normalizedVersion = clientVersion.trimmingCharacters(in: .whitespacesAndNewlines)
         self.clientVersion = normalizedVersion.isEmpty ? "development" : normalizedVersion
     }
@@ -105,6 +112,12 @@ actor CodexAppServerConnection {
         if initialized,
            process?.isRunning == true,
            let activeConnectionID {
+            if profileFingerprint != environmentPolicy.fingerprint(homePath: homePath) {
+                invalidateConnection(activeConnectionID,
+                    reason: "Selected account or profile configuration changed; the old connection was invalidated.",
+                    terminateProcess: true)
+                throw CodexAppServerError.connectionClosed("Profile changed. Inspect the previous turn before continuing; this request was not sent.")
+            }
             return activeConnectionID
         }
 
@@ -144,9 +157,8 @@ actor CodexAppServerConnection {
         let errorPipe = Pipe()
         process.executableURL = executableURL
         process.arguments = executableArgumentsPrefix + ["app-server", "--stdio"]
-        var environment = ProcessInfo.processInfo.environment
-        environment["CODEX_HOME"] = homePath
-        process.environment = environment
+        profileFingerprint = environmentPolicy.fingerprint(homePath: homePath)
+        process.environment = environmentPolicy.environment(homePath: homePath, parent: ProcessInfo.processInfo.environment)
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
         process.standardError = errorPipe
@@ -334,30 +346,39 @@ actor CodexAppServerConnection {
         error: FileHandle,
         connectionID: UUID
     ) {
-        let owner = self
-        output.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty {
-                handle.readabilityHandler = nil
-            }
-            Task {
-                await owner.receiveStandardOutputData(
-                    data,
-                    connectionID: connectionID
-                )
+        // One consumer per pipe preserves byte order. A new unstructured Task
+        // for every chunk can reach the actor out of order, corrupting large
+        // JSON history responses and multibyte text split across reads.
+        let stdout = AsyncStream<Data> { continuation in
+            output.readabilityHandler = { handle in
+                let data = handle.availableData
+                continuation.yield(data)
+                if data.isEmpty {
+                    handle.readabilityHandler = nil
+                    continuation.finish()
+                }
             }
         }
-
-        error.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty {
-                handle.readabilityHandler = nil
+        let stderr = AsyncStream<Data> { continuation in
+            error.readabilityHandler = { handle in
+                let data = handle.availableData
+                continuation.yield(data)
+                if data.isEmpty {
+                    handle.readabilityHandler = nil
+                    continuation.finish()
+                }
             }
-            Task {
-                await owner.receiveStandardErrorData(
-                    data,
-                    connectionID: connectionID
-                )
+        }
+        outputReader = Task { [weak self] in
+            for await data in stdout {
+                guard !Task.isCancelled else { return }
+                await self?.receiveStandardOutputData(data, connectionID: connectionID)
+            }
+        }
+        errorReader = Task { [weak self] in
+            for await data in stderr {
+                guard !Task.isCancelled else { return }
+                await self?.receiveStandardErrorData(data, connectionID: connectionID)
             }
         }
     }
@@ -576,6 +597,10 @@ actor CodexAppServerConnection {
 
         standardOutput?.readabilityHandler = nil
         standardError?.readabilityHandler = nil
+        outputReader?.cancel()
+        errorReader?.cancel()
+        outputReader = nil
+        errorReader = nil
         outputBuffer.removeAll(keepingCapacity: false)
         errorBuffer.removeAll(keepingCapacity: false)
         try? standardInput?.close()

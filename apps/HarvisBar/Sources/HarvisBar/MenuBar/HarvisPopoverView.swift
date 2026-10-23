@@ -106,6 +106,7 @@ struct HarvisPopoverView: View {
     @State var refreshActionRunningIDs: Set<String> = []
     @State var refreshActionCompletions: [String: Int] = [:]
     @StateObject var digitalMeNavigation = DigitalMeNavigationStore()
+    var allowsBackgroundRefresh = true
 
     var theme: HarvisTheme { model.theme }
 
@@ -174,15 +175,15 @@ struct HarvisPopoverView: View {
         .tint(theme.accent)
         .preferredColorScheme(theme.preferredColorScheme)
         .task {
-            guard !HarvisAppMode.isVersionFixture else { return }
+            guard allowsBackgroundRefresh, !HarvisAppMode.isVersionFixture else { return }
             await model.refreshCodexCLIAlignment()
         }
         .task(id: digitalMeNavigationContext) {
-            guard !HarvisAppMode.isVersionFixture else { return }
+            guard allowsBackgroundRefresh, !HarvisAppMode.isVersionFixture else { return }
             await monitorDigitalMeNavigationContext()
         }
         .task(id: selectedSection) {
-            guard !HarvisAppMode.isVersionFixture else { return }
+            guard allowsBackgroundRefresh, !HarvisAppMode.isVersionFixture else { return }
             await refreshDigitalMeNavigationForSelectedSection()
         }
         .sheet(item: $codexHomePendingRename) { home in

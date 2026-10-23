@@ -18,6 +18,18 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
     @Published private(set) var isReady = false
     @Published private(set) var lastError: String?
 
+    /// Optional owner-specific validation after native resume, immediately
+    /// before sending a new turn. Group delivery uses this to revalidate the
+    /// pinned account, project, permissions and durable dispatch identity.
+    var submissionValidator: (@MainActor (CodexTaskCommand, CodexJSONValue) async throws -> Void)?
+    /// Final synchronous cancellation/binding check after every preflight and
+    /// persistence await, at the point where a turn is about to be submitted.
+    var submissionFence: (@MainActor (CodexTaskCommand) throws -> Void)?
+    /// A newly started native thread can be live before it has a rollout to
+    /// resume. The owner may supply its generation-bound, validated start
+    /// response; persisted threads still use native thread/resume.
+    var threadPreparation: (@MainActor (CodexTaskCommand, CodexAppServerConnection) async throws -> CodexJSONValue)?
+
     private let store: any CodexTaskQueueStoring
     let pool: CodexAppServerPool
     private let handoffStore: any CodexConversationHandoffStoring
@@ -563,6 +575,7 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
             connection: connection
         )
 
+        var turnRequestStarted = false
         do {
             let connectionID = try await connection.connect()
             guard await setDispatching(
@@ -572,13 +585,23 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
                 rpcMethod: "thread/resume"
             ) else { return }
 
-            _ = try await connection.request(
-                method: "thread/resume",
-                params: .object([
-                    "threadId": .string(item.command.threadID),
-                    "approvalsReviewer": .string("user"),
-                ])
-            )
+            let resumed: CodexJSONValue
+            if let threadPreparation {
+                resumed = try await threadPreparation(item.command, connection)
+            } else {
+                resumed = try await connection.request(
+                    method: "thread/resume",
+                    params: .object([
+                        "threadId": .string(item.command.threadID),
+                        "approvalsReviewer": .string("user"),
+                    ])
+                )
+            }
+
+            try await submissionValidator?(item.command, resumed)
+            guard await connection.connectionID() == connectionID else {
+                throw CodexAppServerError.connectionClosed("Connection changed before turn submission; no turn was sent.")
+            }
 
             guard await setDispatching(
                 itemID: itemID,
@@ -586,6 +609,8 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
                 connectionID: connectionID,
                 rpcMethod: "turn/start"
             ) else { return }
+            try submissionFence?(item.command)
+            turnRequestStarted = true
             let result = try await connection.request(
                 method: "turn/start",
                 params: .object([
@@ -648,6 +673,10 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
                 ))
             } else {
                 state.status = .active
+                if state.activeTurnID != turnID {
+                    state.finalSummary = nil
+                    state.currentToolSummary = nil
+                }
                 state.activeTurnID = turnID
                 state.ownership = ownership
                 state.append(CodexLiveEvent(
@@ -658,6 +687,15 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
             }
             liveStates[target] = state
             await persistQueue()
+        } catch is CancellationError {
+            if !turnRequestStarted {
+                await setState(itemID: itemID, state: .cancelled, phase: .start,
+                    error: "Cancelled before turn submission.")
+            } else {
+                await handleDispatchFailure(itemID: itemID, method: "turn/start",
+                    error: CodexAppServerError.deliveryUncertain(method: "turn/start",
+                        reason: "submission was cancelled after entering the native request"))
+            }
         } catch {
             await handleDispatchFailure(
                 itemID: itemID,
