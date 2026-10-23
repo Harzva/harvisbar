@@ -17,10 +17,13 @@ struct HarvisGroupWindowView: View {
     @State private var observedDeliveryReady = false
     @State private var observedDeliveryError: String?
     @State private var timelineIsFollowingLatest = true
-    @State private var timelineViewportHeight: CGFloat = 0
-    @State private var timelineBottomY = CGFloat.greatestFiniteMagnitude
+    @State private var newTimelineMessageCount = 0
+    @State private var timelineObservedMessageCounts: [UUID: Int] = [:]
+    @State private var timelineObservedLatestMessageIDs: [UUID: UUID] = [:]
+    @State private var pendingOwnSendTexts: [UUID: String] = [:]
     @State private var timelineVisibleMessageID: UUID?
     @State private var pendingEarlierAnchorID: UUID?
+    @State private var didScheduleInitialComposerFocus = false
     @FocusState private var composerFocused: Bool
 
     private var theme: HarvisTheme { runtime.theme }
@@ -61,6 +64,7 @@ struct HarvisGroupWindowView: View {
         .onAppear {
             refreshDeliveryStatus()
             selectInitialGroupIfNeeded()
+            focusComposerWhenReady()
         }
         .onDisappear { Task { _ = await composerState.flush() } }
         .onReceive(coordinator.delivery.$isReady.removeDuplicates()) { ready in
@@ -70,13 +74,33 @@ struct HarvisGroupWindowView: View {
             observedDeliveryError = error
         }
         .onReceive(composerState.$isReady.removeDuplicates()) { ready in
-            if ready { selectInitialGroupIfNeeded() }
+            if ready {
+                selectInitialGroupIfNeeded()
+                focusComposerWhenReady()
+            }
         }
-        .onChange(of: coordinator.groups.map(\.id)) { _ in selectInitialGroupIfNeeded() }
-        .onChange(of: selectedGroupID) { _ in
+        .onChange(of: coordinator.groups.map(\.id)) { _ in
+            selectInitialGroupIfNeeded()
+            focusComposerWhenReady()
+        }
+        .onChange(of: selectedGroupID) { newGroupID in
             visibleMessageCount = 100
             timelineIsFollowingLatest = true
+            newTimelineMessageCount = 0
             pendingEarlierAnchorID = nil
+            timelineVisibleMessageID = nil
+            if let newGroupID {
+                pendingOwnSendTexts = pendingOwnSendTexts.filter { $0.key == newGroupID }
+            } else {
+                pendingOwnSendTexts.removeAll()
+            }
+            if let id = newGroupID, let group = coordinator.group(id) {
+                timelineObservedMessageCounts[id] = group.messages.count
+                timelineObservedLatestMessageIDs[id] = group.messages.last?.id
+            }
+        }
+        .onChange(of: sheetRoute?.id) { routeID in
+            if routeID == nil { focusComposerWhenReady() }
         }
         .sheet(item: $sheetRoute) { route in
             sheetContent(for: route)
@@ -119,6 +143,22 @@ struct HarvisGroupWindowView: View {
     private func refreshDeliveryStatus() {
         observedDeliveryReady = coordinator.delivery.isReady
         observedDeliveryError = coordinator.delivery.lastError
+    }
+
+    private func focusComposerWhenReady() {
+        guard !didScheduleInitialComposerFocus,
+              composerState.isReady,
+              coordinator.isReady,
+              currentGroup != nil,
+              sheetRoute == nil else { return }
+        didScheduleInitialComposerFocus = true
+        DispatchQueue.main.async {
+            guard sheetRoute == nil, currentGroup != nil else {
+                didScheduleInitialComposerFocus = false
+                return
+            }
+            composerFocused = true
+        }
     }
 
     private var loadingState: some View {
@@ -206,6 +246,7 @@ struct HarvisGroupWindowView: View {
                 memberSection(group)
                 Rectangle().fill(theme.line).frame(height: 1)
                 timeline(group)
+                    .id(group.id)
                 composer(group)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -383,89 +424,102 @@ struct HarvisGroupWindowView: View {
         let visibleMessages = Array(group.messages.suffix(visibleMessageCount))
         let bottomAnchorID = "harvis.group-chat.timeline.bottom.\(group.id.uuidString)"
         return ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    if group.messages.count > visibleMessages.count {
-                        Button("加载更早的群聊记录（\(group.messages.count - visibleMessages.count) 条）") {
-                            pendingEarlierAnchorID = timelineVisibleMessageID ?? visibleMessages.first?.id
-                            visibleMessageCount += 100
+            ZStack(alignment: .bottomTrailing) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        HarvisGroupTimelineScrollObserver { isAtBottom in
+                            if timelineIsFollowingLatest != isAtBottom {
+                                timelineIsFollowingLatest = isAtBottom
+                            }
+                            if isAtBottom, newTimelineMessageCount > 0 {
+                                newTimelineMessageCount = 0
+                            }
                         }
-                        .buttonStyle(.plain)
-                        .harvisFont(.caption)
-                        .foregroundColor(theme.accent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                    }
+                        .frame(width: 1, height: 1)
+                        .accessibilityHidden(true)
 
-                    if group.messages.isEmpty {
-                        VStack(spacing: 6) {
-                            Text("这里是共享群时间线")
-                                .harvisFont(.subheadline.weight(.semibold))
-                            Text("发送消息默认唤醒全体成员；写出成员名字可定向指派，也可选择仅记录。")
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            if group.messages.count > visibleMessages.count {
+                                Button("加载更早的群聊记录（\(group.messages.count - visibleMessages.count) 条）") {
+                                    pendingEarlierAnchorID = timelineVisibleMessageID ?? visibleMessages.first?.id
+                                    timelineIsFollowingLatest = false
+                                    visibleMessageCount += 100
+                                }
+                                .buttonStyle(.plain)
                                 .harvisFont(.caption)
-                                .foregroundColor(theme.muted)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 120)
-                    } else {
-                        ForEach(visibleMessages) { message in
-                            HarvisGroupMessageRow(
-                                message: message,
-                                group: group,
-                                homeLabel: message.source.map { homeLabel(for: $0.homePath) },
-                                theme: theme
-                            )
-                            .background {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(
-                                        key: HarvisGroupTimelineMessageFramesPreferenceKey.self,
-                                        value: [message.id: geometry.frame(in: .named("harvis.group-chat.timeline.viewport"))]
+                                .foregroundColor(theme.accent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 5)
+                            }
+
+                            if group.messages.isEmpty {
+                                VStack(spacing: 6) {
+                                    Text("这里是共享群时间线")
+                                        .harvisFont(.subheadline.weight(.semibold))
+                                    Text("发送消息默认唤醒全体成员；写出成员名字可定向指派，也可选择仅记录。")
+                                        .harvisFont(.caption)
+                                        .foregroundColor(theme.muted)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 120)
+                            } else {
+                                ForEach(visibleMessages) { message in
+                                    HarvisGroupMessageRow(
+                                        message: message,
+                                        group: group,
+                                        homeLabel: message.source.map { homeLabel(for: $0.homePath) },
+                                        theme: theme
                                     )
+                                    .background {
+                                        GeometryReader { geometry in
+                                            Color.clear.preference(
+                                                key: HarvisGroupTimelineMessageFramesPreferenceKey.self,
+                                                value: [message.id: geometry.frame(in: .named("harvis.group-chat.timeline.viewport"))]
+                                            )
+                                        }
+                                    }
+                                    .id(message.id)
                                 }
                             }
-                            .id(message.id)
-                        }
-                    }
 
-                    Color.clear
-                        .frame(height: 1)
-                        .background {
-                            GeometryReader { geometry in
-                                Color.clear.preference(
-                                    key: HarvisGroupTimelineBottomYPreferenceKey.self,
-                                    value: geometry.frame(in: .named("harvis.group-chat.timeline.viewport")).minY
-                                )
-                            }
+                            Color.clear
+                                .frame(height: 1)
+                                .id(bottomAnchorID)
                         }
-                        .id(bottomAnchorID)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                    }
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-            }
-            .coordinateSpace(name: "harvis.group-chat.timeline.viewport")
-            .background {
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: HarvisGroupTimelineViewportHeightPreferenceKey.self,
-                        value: geometry.size.height
-                    )
+                .coordinateSpace(name: "harvis.group-chat.timeline.viewport")
+                .onPreferenceChange(HarvisGroupTimelineMessageFramesPreferenceKey.self) { frames in
+                    timelineVisibleMessageID = frames
+                        .filter { $0.value.maxY > 0 }
+                        .min { $0.value.minY < $1.value.minY }?
+                        .key
                 }
-            }
-            .onPreferenceChange(HarvisGroupTimelineViewportHeightPreferenceKey.self) { height in
-                timelineViewportHeight = height
-                updateTimelineFollowState()
-            }
-            .onPreferenceChange(HarvisGroupTimelineBottomYPreferenceKey.self) { bottomY in
-                timelineBottomY = bottomY
-                updateTimelineFollowState()
-            }
-            .onPreferenceChange(HarvisGroupTimelineMessageFramesPreferenceKey.self) { frames in
-                timelineVisibleMessageID = frames
-                    .filter { $0.value.maxY > 0 }
-                    .min { $0.value.minY < $1.value.minY }?
-                    .key
+                if !timelineIsFollowingLatest {
+                    Button {
+                        newTimelineMessageCount = 0
+                        timelineIsFollowingLatest = true
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                        }
+                    } label: {
+                        Label(
+                            newTimelineMessageCount > 0 ? "\(newTimelineMessageCount) 条新消息 · 返回最新" : "返回最新",
+                            systemImage: "arrow.down.to.line"
+                        )
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .padding(12)
+                    .accessibilityIdentifier("harvis.group-chat.return-latest")
+                }
             }
             .onAppear {
                 timelineIsFollowingLatest = true
+                newTimelineMessageCount = 0
+                timelineObservedMessageCounts[group.id] = group.messages.count
+                timelineObservedLatestMessageIDs[group.id] = group.messages.last?.id
                 DispatchQueue.main.async {
                     proxy.scrollTo(bottomAnchorID, anchor: .bottom)
                 }
@@ -477,20 +531,45 @@ struct HarvisGroupWindowView: View {
                     pendingEarlierAnchorID = nil
                 }
             }
-            .onChange(of: group.messages.last?.id) { latestID in
+            .onReceive(coordinator.$groups) { groups in
+                guard let updatedGroup = groups.first(where: { $0.id == group.id }) else { return }
+                let latestID = updatedGroup.messages.last?.id
+                let previousCount = timelineObservedMessageCounts[group.id] ?? max(0, updatedGroup.messages.count - 1)
+                guard timelineObservedLatestMessageIDs[group.id] != latestID else {
+                    timelineObservedMessageCounts[group.id] = updatedGroup.messages.count
+                    return
+                }
+                timelineObservedLatestMessageIDs[group.id] = latestID
+                timelineObservedMessageCounts[group.id] = updatedGroup.messages.count
                 guard latestID != nil else { return }
-                guard timelineIsFollowingLatest else { return }
-                withAnimation(.easeOut(duration: 0.15)) {
-                    proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                let newMessages = Array(updatedGroup.messages.dropFirst(min(previousCount, updatedGroup.messages.count)))
+                guard !newMessages.isEmpty else { return }
+
+                if let pendingText = pendingOwnSendTexts[group.id],
+                   newMessages.contains(where: { $0.memberID == nil && $0.speaker == "你" && $0.text == pendingText }) {
+                    pendingOwnSendTexts[group.id] = nil
+                    timelineIsFollowingLatest = true
+                    newTimelineMessageCount = 0
+                    DispatchQueue.main.async {
+                        guard selectedGroupID == group.id, timelineIsFollowingLatest else { return }
+                        withAnimation(.easeOut(duration: 0.18)) {
+                            proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                        }
+                    }
+                } else if timelineIsFollowingLatest {
+                    newTimelineMessageCount = 0
+                    DispatchQueue.main.async {
+                        guard selectedGroupID == group.id, timelineIsFollowingLatest else { return }
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+                        }
+                    }
+                } else {
+                    newTimelineMessageCount += newMessages.count
                 }
             }
         }
         .accessibilityIdentifier("harvis.group-chat.timeline")
-    }
-
-    private func updateTimelineFollowState() {
-        guard timelineViewportHeight > 0, timelineBottomY.isFinite else { return }
-        timelineIsFollowingLatest = timelineBottomY <= timelineViewportHeight + 32
     }
 
     private func composer(_ group: HarvisGroupConversation) -> some View {
@@ -606,7 +685,7 @@ struct HarvisGroupWindowView: View {
             }
 
             HStack(spacing: 7) {
-                Image(systemName: effectiveRecipients(group).isEmpty ? "info.circle" : "paperplane")
+                Image(systemName: effectiveRecipients(group, draft: currentDraft).isEmpty ? "info.circle" : "paperplane")
                     .accessibilityHidden(true)
                 Text(composerState.isReady ? composerHint(group) : (composerState.lastError.map { "草稿状态恢复失败：\($0)" } ?? "正在恢复群聊草稿…"))
                     .harvisFont(.caption2)
@@ -710,12 +789,12 @@ struct HarvisGroupWindowView: View {
         }
     }
 
-    private func effectiveRecipients(_ group: HarvisGroupConversation) -> [UUID] {
-        if case .recordOnly = recipientMode { return [] }
-        let typed = explicitRecipients(group)
+    private func effectiveRecipients(_ group: HarvisGroupConversation, draft: HarvisGroupComposerDraft) -> [UUID] {
+        if case .recordOnly = draft.recipientMode { return [] }
+        let typed = HarvisGroupMentions.resolve(draft.text, members: group.members)
         if !typed.isEmpty { return typed }
 
-        switch recipientMode {
+        switch draft.recipientMode {
         case .allMembers:
             return group.members.map(\.id)
         case let .selected(memberIDs):
@@ -730,7 +809,7 @@ struct HarvisGroupWindowView: View {
     }
 
     private func composerHint(_ group: HarvisGroupConversation) -> String {
-        let recipients = effectiveRecipients(group)
+        let recipients = effectiveRecipients(group, draft: currentDraft)
         let permissionLabel = permission == .discussion ? "只读讨论" : "允许写入共享项目"
         if case .recordOnly = recipientMode {
             let mentionNote = explicitRecipients(group).isEmpty ? "" : "；提到名字也不执行"
@@ -749,15 +828,18 @@ struct HarvisGroupWindowView: View {
     private func send(_ group: HarvisGroupConversation) {
         let initialDraft = composerState.draft(for: group.id)
         let originalDraft = initialDraft.text
-        let originalRecipientMode = initialDraft.recipientMode
         let text = initialDraft.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard composerState.isReady, !text.isEmpty, !sendingGroupIDs.contains(group.id) else { return }
-        let recipients = effectiveRecipients(group)
+        guard composerState.isReady,
+              composerState.selectedGroupID == group.id,
+              !text.isEmpty,
+              !sendingGroupIDs.contains(group.id) else { return }
+        let recipients = effectiveRecipients(group, draft: initialDraft)
         let sendPermission = initialDraft.permission
         let groupID = group.id
         submitErrors[groupID] = nil
         sendingGroupIDs.insert(groupID)
-        updateComposerDraft(groupID: groupID, text: "", recipientMode: .allMembers)
+        pendingOwnSendTexts[groupID] = text
+        updateComposerDraft(groupID: groupID, text: "")
         Task {
             let persisted = await coordinator.send(
                 groupID: groupID,
@@ -768,16 +850,16 @@ struct HarvisGroupWindowView: View {
             )
             sendingGroupIDs.remove(groupID)
             if !persisted {
+                if pendingOwnSendTexts[groupID] == text { pendingOwnSendTexts[groupID] = nil }
                 let latestDraft = composerState.draft(for: groupID)
                 if latestDraft.text.isEmpty {
-                    let restoredMode = latestDraft.recipientMode == .allMembers ? originalRecipientMode : latestDraft.recipientMode
                     composerState.updateDraft(
                         groupID: groupID,
                         text: originalDraft,
-                        recipientMode: restoredMode,
+                        recipientMode: latestDraft.recipientMode,
                         permission: latestDraft.permission
                     )
-                    if composerState.selectedGroupID == groupID {
+                    if composerState.selectedGroupID == groupID, sheetRoute == nil {
                         composerFocused = true
                     }
                     submitErrors[groupID] = "消息未保存，草稿已恢复；请检查群聊状态后重试。"
@@ -2038,26 +2120,97 @@ private struct HarvisNativeHistoryEntry: Identifiable {
     }
 }
 
-private struct HarvisGroupTimelineViewportHeightPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-private struct HarvisGroupTimelineBottomYPreferenceKey: PreferenceKey {
-    static let defaultValue: CGFloat = .greatestFiniteMagnitude
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 private struct HarvisGroupTimelineMessageFramesPreferenceKey: PreferenceKey {
     static let defaultValue: [UUID: CGRect] = [:]
 
     static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
         value.merge(nextValue(), uniquingKeysWith: { _, next in next })
+    }
+}
+
+@MainActor
+private struct HarvisGroupTimelineScrollObserver: NSViewRepresentable {
+    let onAtBottomChange: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onAtBottomChange: onAtBottomChange)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        NSView(frame: NSRect(x: 0, y: 0, width: 1, height: 1))
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.onAtBottomChange = onAtBottomChange
+        context.coordinator.attach(to: nsView)
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.detach()
+    }
+
+    @MainActor
+    final class Coordinator {
+        var onAtBottomChange: (Bool) -> Void
+        private weak var scrollView: NSScrollView?
+        private var scrollObservers: [NSObjectProtocol] = []
+        private var hasUsedAttachmentRetry = false
+        private var isDismantled = false
+
+        init(onAtBottomChange: @escaping (Bool) -> Void) {
+            self.onAtBottomChange = onAtBottomChange
+        }
+
+        func attach(to view: NSView) {
+            guard !isDismantled else { return }
+            guard let scrollView = view.enclosingScrollView else {
+                guard !hasUsedAttachmentRetry else { return }
+                hasUsedAttachmentRetry = true
+                DispatchQueue.main.async { [weak self, weak view] in
+                    guard let self, let view else { return }
+                    guard !self.isDismantled else { return }
+                    self.attach(to: view)
+                }
+                return
+            }
+            guard self.scrollView !== scrollView else { return }
+            removeScrollObservers()
+            self.scrollView = scrollView
+            // Live-scroll events capture viewport intent; document growth alone cannot change follow state.
+            for notification in [NSScrollView.didLiveScrollNotification, NSScrollView.didEndLiveScrollNotification] {
+                scrollObservers.append(NotificationCenter.default.addObserver(
+                    forName: notification,
+                    object: scrollView,
+                    queue: .main
+                ) { [weak self, weak scrollView] _ in
+                    MainActor.assumeIsolated {
+                        guard let self, let scrollView, !self.isDismantled else { return }
+                        self.publishScrollPosition(in: scrollView)
+                    }
+                })
+            }
+        }
+
+        func detach() {
+            isDismantled = true
+            removeScrollObservers()
+            scrollView = nil
+        }
+
+        private func removeScrollObservers() {
+            for observer in scrollObservers { NotificationCenter.default.removeObserver(observer) }
+            scrollObservers.removeAll()
+            scrollView = nil
+        }
+
+        private func publishScrollPosition(in scrollView: NSScrollView) {
+            guard let documentView = scrollView.documentView else { return }
+            let documentBounds = documentView.bounds
+            let visibleRect = scrollView.documentVisibleRect
+            let distanceToBottom = documentView.isFlipped
+                ? documentBounds.maxY - visibleRect.maxY
+                : visibleRect.minY - documentBounds.minY
+            onAtBottomChange(distanceToBottom <= 32)
+        }
     }
 }

@@ -515,6 +515,119 @@ final class HarvisGroupBackendTests: XCTestCase {
         fixture.group.deactivate(); await fixture.delivery.deactivate()
     }
 
+    func testCurrentRequestIsOutsideReferenceHistoryAndConsecutiveDispatchesKeepTheirOwnMessage() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        let memberID = try await unwrap(fixture.group.addMember(groupID: groupID, name: "审查员", role: "旧验收职责：只回复 UX_ROLE_READY", homePath: fixture.root.path))
+        await fixture.group.send(groupID: groupID, text: "请审查员确认旧验收口令。")
+        let initialStarted = await eventually { fixture.delivery.durableQueueItems.first?.state == .running }
+        XCTAssertTrue(initialStarted)
+        let binding = try XCTUnwrap(fixture.group.group(groupID)?.members[0].binding)
+        let connection = await fixture.delivery.pool.connection(for: binding.homePath)
+        _ = try await connection.request(method: "test/emitCompletion", params: .object(["threadId": .string(binding.threadID), "message": .string("UX_ROLE_READY")]))
+        let initialCompleted = await eventually { fixture.group.group(groupID)?.dispatches.first?.nativeReplyVerified == true }
+        XCTAssertTrue(initialCompleted)
+        await fixture.group.send(groupID: groupID, text: "UNREAD_REFERENCE_ONLY：此前讨论的依据。", resolveTextMentions: false)
+        let firstRequest = "CURRENT_TASK_ONE：请生成40条具体检查项，不要只给旧验收口令。"
+        let secondRequest = "CURRENT_TASK_TWO：仅总结下一阶段的三个决定。"
+        await fixture.group.send(groupID: groupID, text: firstRequest, mentionedMemberIDs: [memberID], resolveTextMentions: false)
+        await fixture.group.send(groupID: groupID, text: secondRequest, mentionedMemberIDs: [memberID], resolveTextMentions: false)
+        await fixture.group.send(groupID: groupID, text: "FUTURE_REFERENCE_MUST_NOT_LEAK", resolveTextMentions: false)
+        let commands = fixture.delivery.durableQueueItems.map(\.command)
+        XCTAssertEqual(commands.count, 3)
+        let first = commands[1], second = commands[2]
+        let history = try referenceHistory(in: first.text)
+        XCTAssertTrue(history.contains("审查员: UX_ROLE_READY"))
+        XCTAssertTrue(history.contains("UNREAD_REFERENCE_ONLY"))
+        XCTAssertFalse(history.contains(firstRequest))
+        XCTAssertTrue(first.text.hasSuffix(firstRequest))
+        XCTAssertFalse(first.text.contains(secondRequest))
+        XCTAssertFalse(first.text.contains("FUTURE_REFERENCE_MUST_NOT_LEAK"))
+        XCTAssertTrue(second.text.hasSuffix(secondRequest))
+        XCTAssertFalse(second.text.contains("FUTURE_REFERENCE_MUST_NOT_LEAK"))
+        XCTAssertTrue(first.text.contains("Role/instructions: 旧验收职责：只回复 UX_ROLE_READY"))
+        let dispatches = try XCTUnwrap(fixture.group.group(groupID)?.dispatches)
+        XCTAssertTrue(first.text.contains("message ID: \(dispatches[1].messageID.uuidString)"))
+        XCTAssertTrue(second.text.contains("message ID: \(dispatches[2].messageID.uuidString)"))
+        let firstStarted = await eventually { fixture.delivery.durableQueueItems.first { $0.id == first.id }?.state == .running }
+        XCTAssertTrue(firstStarted)
+        _ = try await connection.request(method: "test/emitCompletion", params: .object(["threadId": .string(binding.threadID)]))
+        let secondStarted = await eventually { fixture.delivery.durableQueueItems.first { $0.id == second.id }?.state == .running }
+        XCTAssertTrue(secondStarted)
+        let starts = try recordedTurnStarts(in: fixture.root)
+        XCTAssertEqual(starts.first { $0["params"]?["clientUserMessageId"]?.stringValue == first.id.uuidString }?["params"]?["input"]?.arrayValue?.first?["text"]?.stringValue, first.text)
+        XCTAssertEqual(starts.first { $0["params"]?["clientUserMessageId"]?.stringValue == second.id.uuidString }?["params"]?["input"]?.arrayValue?.first?["text"]?.stringValue, second.text)
+        fixture.group.deactivate(); await fixture.delivery.deactivate()
+    }
+
+    func testOversizedHistoryTruncationNeverTruncatesTheCompleteCurrentRequest() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        let memberID = try await unwrap(fixture.group.addMember(groupID: groupID, name: "审查员", role: "review", homePath: fixture.root.path))
+        let history = "HISTORY_PREFIX_TO_TRUNCATE" + String(repeating: "h", count: 100_100) + "HISTORY_TAIL_TO_KEEP"
+        await fixture.group.send(groupID: groupID, text: history, resolveTextMentions: false)
+        let request = "CURRENT_PREFIX_MUST_SURVIVE\n" + String(repeating: "u", count: 100_100) + "\nCURRENT_SUFFIX_MUST_SURVIVE"
+        await fixture.group.send(groupID: groupID, text: request, mentionedMemberIDs: [memberID], resolveTextMentions: false)
+        let started = await eventually { fixture.delivery.durableQueueItems.first?.state == .running }
+        XCTAssertTrue(started)
+        let command = try XCTUnwrap(fixture.delivery.durableQueueItems.first?.command)
+        let reference = try referenceHistory(in: command.text)
+        XCTAssertLessThanOrEqual(reference.count, 100_000)
+        XCTAssertFalse(reference.contains("HISTORY_PREFIX_TO_TRUNCATE"))
+        XCTAssertTrue(reference.contains("HISTORY_TAIL_TO_KEEP"))
+        XCTAssertFalse(reference.contains("CURRENT_PREFIX_MUST_SURVIVE"))
+        XCTAssertTrue(command.text.hasSuffix(request))
+        let start = try XCTUnwrap(recordedTurnStarts(in: fixture.root).last)
+        XCTAssertEqual(start["params"]?["input"]?.arrayValue?.first?["text"]?.stringValue, command.text)
+        fixture.group.deactivate(); await fixture.delivery.deactivate()
+    }
+
+    func testCurrentRequestSurvivesRestoredConsumedMarkerAtItsSequenceBoundary() async throws {
+        let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
+        let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        let memberID = try await unwrap(fixture.group.addMember(groupID: groupID, name: "审查员", role: "review", homePath: fixture.root.path))
+        await fixture.group.send(groupID: groupID, text: "请审查员准备。")
+        let initialStarted = await eventually { fixture.delivery.durableQueueItems.first?.state == .running }
+        XCTAssertTrue(initialStarted)
+        let binding = try XCTUnwrap(fixture.group.group(groupID)?.members[0].binding)
+        let connection = await fixture.delivery.pool.connection(for: binding.homePath)
+        _ = try await connection.request(method: "test/emitCompletion", params: .object(["threadId": .string(binding.threadID)]))
+        let initialCompleted = await eventually { fixture.group.group(groupID)?.dispatches.first?.nativeReplyVerified == true }
+        XCTAssertTrue(initialCompleted)
+        fixture.group.deactivate()
+        let store = HarvisGroupStore(url: fixture.root.appendingPathComponent("groups.json"))
+        var saved = try await store.load()
+        saved[0].members[0].lastConsumedSequence = saved[0].lastSequence + 1
+        let boundary = saved[0].members[0].lastConsumedSequence
+        try await store.save(saved)
+        let restored = HarvisGroupCoordinator(delivery: fixture.delivery, store: store)
+        await restored.activate()
+        let request = "CURRENT_BOUNDARY_TASK：请执行本次完整新任务。"
+        await restored.send(groupID: groupID, text: request, mentionedMemberIDs: [memberID], resolveTextMentions: false)
+        let message = try XCTUnwrap(restored.group(groupID)?.messages.last { $0.text == request })
+        XCTAssertEqual(message.sequence, boundary)
+        let command = try XCTUnwrap(fixture.delivery.durableQueueItems.last?.command)
+        XCTAssertTrue(command.text.hasSuffix(request))
+        XCTAssertEqual(try referenceHistory(in: command.text), "")
+        let started = await eventually { fixture.delivery.durableQueueItems.last?.state == .running }
+        XCTAssertTrue(started)
+        XCTAssertEqual(try recordedTurnStarts(in: fixture.root).last?["params"]?["input"]?.arrayValue?.first?["text"]?.stringValue, command.text)
+        restored.deactivate(); await fixture.delivery.deactivate()
+    }
+
+    private func referenceHistory(in packet: String) throws -> String {
+        let start = try XCTUnwrap(packet.range(of: "\n<group-context>\n"))
+        let end = try XCTUnwrap(packet.range(of: "\n</group-context>", range: start.upperBound ..< packet.endIndex))
+        return String(packet[start.upperBound ..< end.lowerBound])
+    }
+
+    private func recordedTurnStarts(in root: URL) throws -> [CodexJSONValue] {
+        try String(contentsOf: root.appendingPathComponent("rpc-log.jsonl"), encoding: .utf8)
+            .split(separator: "\n")
+            .map { try JSONDecoder().decode(CodexJSONValue.self, from: Data($0.utf8)) }
+            .filter { $0["method"]?.stringValue == "turn/start" }
+    }
+
     private func unwrap<T>(_ value: T?) throws -> T { try XCTUnwrap(value) }
 
     private func cleanFixture(_ root: URL) {
