@@ -226,21 +226,28 @@ from pathlib import Path
 import sys
 
 Path(sys.argv[1]).write_text(
-    """H.A.R.V.I.S. Bar
+    """HarvisBar
 
 Drag HarvisBar.app into Applications, then open it from the menu bar.
 
-If the resident runner cannot read an external-volume workspace, grant Full Disk
-Access to the installed Harvis runtime binary, or to the containing app/terminal
-process used by the H.A.R.V.I.S. LaunchAgent, and restart the H.A.R.V.I.S.
-services from the menu bar.
+The first-launch guide explains each permission before background file access
+starts. Choose a workspace, then explicitly verify and enable access when you
+need workspace features. You can continue with all optional access disabled.
+
+Accessibility, Screen Recording, and Full Disk Access are optional and are
+granted by you in macOS System Settings. The guide includes settings shortcuts
+and an app icon you can drag into the appropriate permission list.
+
+Open settings with Command-comma to revisit permissions or choose your own Bar
+name. LaunchAgent-based services may need separate permission for their host
+process; see the app's bundled FULL_DISK_ACCESS.md for details.
 """,
     encoding="utf-8",
 )
 PY
 
 hdiutil create \
-  -volname "H.A.R.V.I.S. Bar" \
+  -volname "HarvisBar" \
   -srcfolder "$STAGING" \
   -format UDZO \
   "$TEMP_DMG" >/dev/null
