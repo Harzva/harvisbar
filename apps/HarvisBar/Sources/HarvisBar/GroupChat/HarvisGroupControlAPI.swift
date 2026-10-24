@@ -52,8 +52,13 @@ final class HarvisGroupControlAPI {
         case "groups.status":
             var value = summary(group).objectValue!
             value["members"] = .array(group.members.map { member in
-                .object(["id": .string(member.id.uuidString), "name": .string(member.name),
+                let work = coordinator.memberWorkStatus(groupID: group.id, memberID: member.id)
+                return .object(["id": .string(member.id.uuidString), "name": .string(member.name),
+                    "role": .string(member.role), "isOwner": .bool(member.id == group.ownerMemberID),
                     "threadID": optional(member.binding?.threadID),
+                    "state": .string(work?.state.rawValue ?? "idle"), "currentTask": optional(work?.currentTask),
+                    "queuedTaskCount": .number(Double(work?.queuedTaskCount ?? 0)),
+                    "completedTaskCount": .number(Double(work?.completedTaskCount ?? 0)),
                     "awaitingHumanApproval": .bool(coordinator.liveState(groupID: group.id, memberID: member.id)?.pendingApproval != nil)])
             })
             value["dispatches"] = .array(group.dispatches.suffix(100).map { dispatch in
@@ -64,7 +69,11 @@ final class HarvisGroupControlAPI {
             })
             value["runs"] = .array(group.runs.suffix(100).map { run in
                 .object(["id": .string(run.id.uuidString), "state": .string(run.state.rawValue),
-                    "messageID": .string(run.rootMessageID.uuidString), "hasError": .bool(run.lastError != nil)])
+                    "messageID": .string(run.rootMessageID.uuidString), "rootMessageID": .string(run.rootMessageID.uuidString),
+                    "summary": .string(run.summary), "ownerRound": .number(Double(run.ownerRound)),
+                    "taskCount": .number(Double(run.steps.count)),
+                    "finishedTaskCount": .number(Double(run.steps.filter { $0.state == .finished }.count)),
+                    "hasError": .bool(run.lastError != nil)])
             })
             return .object(value)
         case "groups.send":
@@ -96,18 +105,32 @@ final class HarvisGroupControlAPI {
         case "groups.results":
             let after = try integer(params, "afterSequence", fallback: 0, range: 0 ... Int.max)
             let limit = try integer(params, "limit", fallback: 20, range: 1 ... 100)
-            var messages: [CodexJSONValue] = []; var count = 0; var last = after
+            // Delivery pagination follows the final verified owner reply, not a member's completion.
+            var deliveryByMessage: [UUID: [CodexJSONValue]] = [:]
+            for run in group.runs where run.state == .completed {
+                guard let owner = run.ownerMemberID, let dispatchID = run.ownerDispatchID,
+                      let dispatch = group.dispatches.first(where: { $0.id == dispatchID }),
+                      dispatch.memberID == owner, dispatch.state == .completed, dispatch.nativeReplyVerified,
+                      let replyID = dispatch.responseMessageID,
+                      let reply = group.messages.first(where: { $0.id == replyID && $0.dispatchID == dispatchID }) else { continue }
+                deliveryByMessage[replyID, default: []].append(.object([
+                    "runID": .string(run.id.uuidString), "rootMessageID": .string(run.rootMessageID.uuidString),
+                    "summary": .string(run.summary), "finalMessageID": .string(replyID.uuidString),
+                    "finalSequence": .number(Double(reply.sequence))]))
+            }
+            var messages: [CodexJSONValue] = []; var deliveries: [CodexJSONValue] = []; var count = 0; var last = after
             for message in group.messages where message.sequence > after {
                 let value = CodexJSONValue.object(["id": .string(message.id.uuidString), "sequence": .number(Double(message.sequence)),
                     "speaker": .string(message.speaker), "text": .string(message.text), "memberID": optional(message.memberID?.uuidString),
                     "dispatchID": optional(message.dispatchID?.uuidString), "threadID": optional(message.source?.threadID)])
-                let bytes = try value.encodedData().count
+                let finalDeliveries = deliveryByMessage[message.id] ?? []
+                let bytes = try value.encodedData().count + finalDeliveries.reduce(0) { try $0 + $1.encodedData().count }
                 if count + bytes > 900_000 { break }
-                messages.append(value); count += bytes; last = message.sequence
+                messages.append(value); deliveries.append(contentsOf: finalDeliveries); count += bytes; last = message.sequence
                 if messages.count >= limit { break }
             }
-            guard !messages.isEmpty || !group.messages.contains(where: { $0.sequence > after }) else { throw Failure(-32011, "Next message exceeds the control response limit; inspect it in HarvisBar native history.") }
-            return .object(["messages": .array(messages), "nextSequence": .number(Double(last)), "hasMore": .bool(group.messages.contains { $0.sequence > last })])
+            guard !messages.isEmpty || !group.messages.contains(where: { $0.sequence > after }) else { throw Failure(-32011, "Next message or final delivery exceeds the control response limit; inspect it in HarvisBar native history.") }
+            return .object(["messages": .array(messages), "deliveries": .array(deliveries), "nextSequence": .number(Double(last)), "hasMore": .bool(group.messages.contains { $0.sequence > last })])
         case "groups.cancel":
             if params["runID"] != nil {
                 guard params["memberID"] == nil else { throw Failure(-32602, "Choose runID or memberID.") }
@@ -127,6 +150,16 @@ final class HarvisGroupControlAPI {
     }
     private func summary(_ group: HarvisGroupConversation) -> CodexJSONValue {
         .object(["id": .string(group.id.uuidString), "title": .string(group.title), "backgroundEnabled": .bool(true),
+            "service": .object(["schemaVersion": .string("harvis.agent-service.v1"), "serviceID": .string("harvis-group:" + group.id.uuidString),
+            "name": .string(group.title),
+            "responsibilities": .array(group.members.map { member in
+                .object(["memberID": .string(member.id.uuidString), "name": .string(member.name),
+                    "role": .string(member.role), "isOwner": .bool(member.id == group.ownerMemberID)])
+            }),
+            "description": .string("Submit a goal to this group's owner, follow member progress, and collect the owner's verified final delivery."),
+            "capabilities": .array(["task.submit", "task.status", "task.results", "task.cancel"].map(CodexJSONValue.string)),
+            "defaultMode": .string("coordinated"), "transports": .array([.string("mcp"), .string("http")]),
+            "requiresRunningApp": .bool(true), "ownerConfigured": .bool(group.members.contains { $0.id == group.ownerMemberID })]),
             "ownerMemberID": optional(group.ownerMemberID?.uuidString), "projectPermission": .string(group.projectPermission.rawValue),
             "lastSequence": .number(Double(group.lastSequence))])
     }

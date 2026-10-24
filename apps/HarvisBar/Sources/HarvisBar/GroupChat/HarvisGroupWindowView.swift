@@ -19,6 +19,7 @@ struct HarvisGroupWindowView: View {
     @State private var pendingRunIDs: Set<UUID> = []
     @State private var runActionErrors: [UUID: String] = [:]
     @State private var expandedRunID: UUID?
+    @State private var copiedAgentEntryGroupID: UUID?
     @State private var isRetryingActivation = false
     @State private var isRetryingComposerPersistence = false
     @State private var observedDeliveryReady = false
@@ -28,7 +29,6 @@ struct HarvisGroupWindowView: View {
     @State private var timelineObservedMessageCounts: [UUID: Int] = [:]
     @State private var timelineObservedLatestMessageIDs: [UUID: UUID] = [:]
     @State private var pendingOwnSendTexts: [UUID: String] = [:]
-    @State private var timelineVisibleMessageID: UUID?
     @State private var pendingEarlierAnchorID: UUID?
     @State private var didScheduleInitialComposerFocus = false
     @FocusState private var composerFocused: Bool
@@ -94,7 +94,6 @@ struct HarvisGroupWindowView: View {
             timelineIsFollowingLatest = true
             newTimelineMessageCount = 0
             pendingEarlierAnchorID = nil
-            timelineVisibleMessageID = nil
             if let newGroupID {
                 pendingOwnSendTexts = pendingOwnSendTexts.filter { $0.key == newGroupID }
             } else {
@@ -254,6 +253,7 @@ struct HarvisGroupWindowView: View {
                 Rectangle().fill(theme.line).frame(height: 1)
                 timeline(group)
                     .id(group.id)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 composer(group)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -289,14 +289,18 @@ struct HarvisGroupWindowView: View {
                 .padding(.horizontal, 6)
                 .padding(.bottom, 10)
             }
+            .frame(maxHeight: .infinity)
         }
         .frame(width: 224)
+        .frame(maxHeight: .infinity)
         .background(theme.surfaceAlt.opacity(theme.usesFlatSurfaces ? 0.72 : 0.54))
     }
 
     private func groupRow(_ group: HarvisGroupConversation) -> some View {
         let isSelected = group.id == selectedGroupID
-        let preview = group.messages.last?.text ?? "添加成员并开始讨论"
+        let preview = group.messages.last.map {
+            HarvisGroupMessagePresentation.displayText(for: $0, in: group)
+        } ?? "添加成员并开始讨论"
         return Button {
             if composerState.isReady { composerState.selectGroup(group.id) }
             else { fallbackSelectedGroupID = group.id }
@@ -357,14 +361,23 @@ struct HarvisGroupWindowView: View {
             Spacer(minLength: 6)
             Menu {
                 Button {
+                    copyToPasteboard(runtime.groupAgentServiceInstallationText(group: group))
+                    copiedAgentEntryGroupID = group.id
+                } label: {
+                    Label(
+                        copiedAgentEntryGroupID == group.id ? "已复制接入入口" : "复制接入入口",
+                        systemImage: copiedAgentEntryGroupID == group.id ? "checkmark" : "doc.on.doc"
+                    )
+                }
+                Button {
                     sheetRoute = .memory(group.id)
                 } label: {
                     Label("查看协作记忆", systemImage: "brain.head.profile")
                 }
                 Button {
-                    sheetRoute = .mcpConfiguration
+                    sheetRoute = .mcpConfiguration(group.id)
                 } label: {
-                    Label("查看 MCP 配置…", systemImage: "doc.text.magnifyingglass")
+                    Label("接入智能体服务…", systemImage: "doc.text.magnifyingglass")
                 }
             } label: {
                 Label("协作", systemImage: "brain.head.profile")
@@ -431,6 +444,7 @@ struct HarvisGroupWindowView: View {
                                 member: member,
                                 liveState: coordinator.liveState(groupID: group.id, memberID: member.id),
                                 latestDispatch: latestDispatch(group: group, memberID: member.id),
+                                workStatus: coordinator.memberWorkStatus(groupID: group.id, memberID: member.id),
                                 homeLabel: homeLabel(for: member.binding?.homePath ?? member.homePath),
                                 theme: theme,
                                 isOwner: group.ownerMemberID == member.id,
@@ -458,7 +472,7 @@ struct HarvisGroupWindowView: View {
                         }
                     }
                 }
-                .frame(maxHeight: 140)
+                .frame(height: min(140, CGFloat(max(1, group.members.count)) * 56))
             }
         }
         .padding(.horizontal, 14)
@@ -469,6 +483,11 @@ struct HarvisGroupWindowView: View {
     private func ownerMember(in group: HarvisGroupConversation) -> HarvisGroupMember? {
         guard let ownerID = group.ownerMemberID else { return nil }
         return group.members.first { $0.id == ownerID }
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     private func setOwner(groupID: UUID, memberID: UUID?) {
@@ -589,7 +608,7 @@ struct HarvisGroupWindowView: View {
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .frame(maxHeight: 96)
+                        .frame(height: 96)
                     }
                     if run.state == .deliveryUnknown {
                         HStack(spacing: 6) {
@@ -607,7 +626,10 @@ struct HarvisGroupWindowView: View {
                         Label(error, systemImage: "exclamationmark.triangle")
                             .harvisFont(.caption2)
                             .foregroundColor(.red)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
                             .textSelection(.enabled)
+                            .help(error)
                     }
                 }
             }
@@ -728,7 +750,7 @@ struct HarvisGroupWindowView: View {
                         LazyVStack(alignment: .leading, spacing: 12) {
                             if group.messages.count > visibleMessages.count {
                                 Button("加载更早的群聊记录（\(group.messages.count - visibleMessages.count) 条）") {
-                                    pendingEarlierAnchorID = timelineVisibleMessageID ?? visibleMessages.first?.id
+                                    pendingEarlierAnchorID = visibleMessages.first?.id
                                     timelineIsFollowingLatest = false
                                     visibleMessageCount += 100
                                 }
@@ -756,14 +778,6 @@ struct HarvisGroupWindowView: View {
                                         homeLabel: message.source.map { homeLabel(for: $0.homePath) },
                                         theme: theme
                                     )
-                                    .background {
-                                        GeometryReader { geometry in
-                                            Color.clear.preference(
-                                                key: HarvisGroupTimelineMessageFramesPreferenceKey.self,
-                                                value: [message.id: geometry.frame(in: .named("harvis.group-chat.timeline.viewport"))]
-                                            )
-                                        }
-                                    }
                                     .id(message.id)
                                 }
                             }
@@ -775,13 +789,6 @@ struct HarvisGroupWindowView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                     }
-                }
-                .coordinateSpace(name: "harvis.group-chat.timeline.viewport")
-                .onPreferenceChange(HarvisGroupTimelineMessageFramesPreferenceKey.self) { frames in
-                    timelineVisibleMessageID = frames
-                        .filter { $0.value.maxY > 0 }
-                        .min { $0.value.minY < $1.value.minY }?
-                        .key
                 }
                 if !timelineIsFollowingLatest {
                     Button {
@@ -1296,14 +1303,20 @@ struct HarvisGroupWindowView: View {
             } else {
                 HarvisUnavailableGroupMemberSheet(theme: theme)
             }
-        case .mcpConfiguration:
-            HarvisGroupMCPConfigurationSheet(
-                serviceStatus: runtime.groupControlServiceStatus,
-                socketPath: runtime.groupControlSocketPath,
-                configuration: runtime.groupMCPConfiguration,
-                theme: theme,
-                onRetry: { runtime.retryGroupControlService() }
-            )
+        case let .mcpConfiguration(groupID):
+            if let group = coordinator.group(groupID) {
+                HarvisGroupMCPConfigurationSheet(
+                    group: group,
+                    serviceStatus: runtime.groupControlServiceStatus,
+                    socketPath: runtime.groupControlSocketPath,
+                    configuration: runtime.groupMCPConfiguration,
+                    installationText: runtime.groupAgentServiceInstallationText(group: group),
+                    theme: theme,
+                    onRetry: { runtime.retryGroupControlService() }
+                )
+            } else {
+                HarvisUnavailableGroupMemberSheet(theme: theme)
+            }
         }
     }
 }
@@ -1315,7 +1328,7 @@ private enum HarvisGroupSheetRoute: Identifiable {
     case history(UUID, UUID)
     case handoff(UUID, UUID)
     case memory(UUID)
-    case mcpConfiguration
+    case mcpConfiguration(UUID)
 
     var id: String {
         switch self {
@@ -1325,7 +1338,7 @@ private enum HarvisGroupSheetRoute: Identifiable {
         case let .history(groupID, memberID): return "history-\(groupID)-\(memberID)"
         case let .handoff(groupID, memberID): return "handoff-\(groupID)-\(memberID)"
         case let .memory(groupID): return "memory-\(groupID)"
-        case .mcpConfiguration: return "mcp-configuration"
+        case let .mcpConfiguration(groupID): return "mcp-configuration-\(groupID)"
         }
     }
 }
@@ -1335,6 +1348,7 @@ private struct HarvisGroupMemberRow: View {
     let member: HarvisGroupMember
     let liveState: CodexThreadLiveState?
     let latestDispatch: HarvisGroupDispatch?
+    let workStatus: HarvisGroupMemberWorkStatus?
     let homeLabel: String
     let theme: HarvisTheme
     let isOwner: Bool
@@ -1361,22 +1375,57 @@ private struct HarvisGroupMemberRow: View {
         return liveState?.activeTurnID != nil || [.queued, .waiting, .dispatching, .running, .waitingApproval].contains(state)
     }
     private var status: (String, Color) {
-        if approval != nil { return ("待审批", theme.accent2) }
-        if liveState?.activeTurnID != nil || liveState?.status == .active { return ("运行中", theme.positive) }
-        if let latestDispatch {
-            switch latestDispatch.state {
-            case .queued: return ("排队中", theme.accent)
-            case .waiting: return ("等待中", theme.accent)
-            case .dispatching: return ("启动中", theme.accent)
-            case .running: return ("运行中", theme.positive)
-            case .waitingApproval: return ("待审批", theme.accent2)
-            case .completed: return ("已完成", theme.positive)
-            case .failed: return ("失败", .red)
-            case .deliveryUnknown: return ("状态待核", theme.accent2)
-            case .cancelled: return ("已停止", theme.muted)
-            }
+        let state = workStatus?.state ?? .idle
+        let label = workStatus?.state.label ?? HarvisGroupMemberWorkState.idle.label
+        switch state {
+        case .idle: return (label, theme.muted)
+        case .queued: return (label, theme.accent)
+        case .running: return (label, theme.positive)
+        case .awaitingApproval: return (label, theme.accent2)
+        case .blocked: return (label, theme.accent2)
+        case .completed: return (label, theme.positive)
+        case .failed: return (label, .red)
+        case .cancelled: return (label, theme.muted)
         }
-        return (member.binding == nil ? "首次指派时启动" : "已绑定 · 空闲", theme.muted)
+    }
+
+    private var statusDetail: String {
+        let task = workStatus?.currentTask?.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch workStatus?.state ?? .idle {
+        case .idle:
+            return "待指派"
+        case .queued:
+            if let task, !task.isEmpty { return "待执行：\(task)" }
+            return "等待任务执行"
+        case .running:
+            if let task, !task.isEmpty { return "当前任务：\(task)" }
+            return "正在执行任务"
+        case .awaitingApproval:
+            if let task, !task.isEmpty { return "待审批：\(task)" }
+            return "等待你的审批"
+        case .blocked:
+            if let task, !task.isEmpty { return "等待处理：\(task)" }
+            return "等待前置任务"
+        case .completed:
+            let count = workStatus?.completedTaskCount ?? 0
+            if count > 0 { return "已完成 \(count) 项交付" }
+            return "交付已完成"
+        case .failed:
+            if let task, !task.isEmpty { return "失败任务：\(task)" }
+            return "任务执行失败"
+        case .cancelled:
+            return "任务已停止"
+        }
+    }
+
+    private var statusCountSummary: String? {
+        let queued = workStatus?.queuedTaskCount ?? 0
+        let completed = workStatus?.completedTaskCount ?? 0
+        let parts = [
+            queued > 0 ? "待处理 \(queued) 项" : nil,
+            completed > 0 ? "已交付 \(completed) 项" : nil,
+        ].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     var body: some View {
@@ -1392,7 +1441,6 @@ private struct HarvisGroupMemberRow: View {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 5) {
                         Text("@\(member.name)").harvisFont(.caption.weight(.semibold)).lineLimit(1)
-                        Text(member.role).harvisFont(.caption2).foregroundColor(theme.muted).lineLimit(1)
                         if isOwner {
                             Label("群主", systemImage: "crown.fill")
                                 .harvisFont(.caption2.weight(.semibold))
@@ -1400,37 +1448,38 @@ private struct HarvisGroupMemberRow: View {
                                 .labelStyle(.titleAndIcon)
                                 .accessibilityLabel("群主")
                         }
-                    }
-                    HStack(spacing: 4) {
-                        Text(homeLabel).lineLimit(1)
-                        if let binding = member.binding {
-                            Text("· 原生 \(binding.threadID.suffix(8))")
-                                .lineLimit(1)
-                                .help("原生 thread ID：\(binding.threadID)")
-                        } else {
-                            Text("· 未启动原生会话").lineLimit(1)
+                        Spacer(minLength: 2)
+                        HStack(spacing: 4) {
+                            Circle().fill(status.1).frame(width: 6, height: 6)
+                            Text(status.0).harvisFont(.caption2.weight(.semibold)).lineLimit(1)
                         }
+                        .foregroundColor(status.1)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("@\(member.name)，状态：\(status.0)")
                     }
-                    .harvisFont(.caption2.monospaced())
-                    .foregroundColor(theme.muted)
-                    if let binding = member.binding, let model = binding.model, !model.isEmpty {
-                        Text("模型 \(model) · 推理 \(binding.reasoningEffort ?? "默认")")
+                    Text("职责 · \(member.role)")
+                        .harvisFont(.caption2)
+                        .foregroundColor(theme.muted)
+                        .lineLimit(1)
+                        .help(member.role)
+                    HStack(spacing: 5) {
+                        Text(statusDetail)
                             .harvisFont(.caption2)
-                            .foregroundColor(theme.muted)
+                            .foregroundColor(theme.text)
                             .lineLimit(1)
-                            .help("原生配置：模型 \(model)，推理档位 \(binding.reasoningEffort ?? "默认")")
+                            .truncationMode(.tail)
+                            .help(statusDetail)
+                        if let statusCountSummary {
+                            Text("· \(statusCountSummary)")
+                                .harvisFont(.caption2)
+                                .foregroundColor(theme.muted)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 .frame(minWidth: 115, maxWidth: 260, alignment: .leading)
 
                 Spacer(minLength: 4)
-                HStack(spacing: 4) {
-                    Circle().fill(status.1).frame(width: 6, height: 6)
-                    Text(status.0).harvisFont(.caption2).lineLimit(1)
-                }
-                .foregroundColor(status.1)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("@\(member.name)，状态：\(status.0)")
 
                 Button(action: onHistory) {
                     Image(systemName: "clock.arrow.circlepath")
@@ -1488,12 +1537,31 @@ private struct HarvisGroupMemberRow: View {
                     Button(action: onHandoff) {
                         Label(member.binding == nil ? "绑定账号并新建会话…" : "换账号交接…", systemImage: "person.crop.circle.badge.arrow.right")
                     }
+                    Section("接入详情") {
+                        Button {} label: { Text("账号 · \(homeLabel)") }
+                            .disabled(true)
+                        if let binding = member.binding {
+                            Button {} label: { Text("原生会话 · …\(binding.threadID.suffix(8))") }
+                                .disabled(true)
+                                .help("原生 thread ID：\(binding.threadID)")
+                            if let model = binding.model, !model.isEmpty {
+                                Button {} label: {
+                                    Text("模型 · \(model) · 推理 \(binding.reasoningEffort ?? "默认")")
+                                }
+                                    .disabled(true)
+                                    .help("原生配置：模型 \(model)，推理档位 \(binding.reasoningEffort ?? "默认")")
+                            }
+                        } else {
+                            Button {} label: { Text("首次指派任务时会创建原生会话") }
+                                .disabled(true)
+                        }
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
                 .menuStyle(.borderlessButton)
-                .help("成员会话操作")
-                .accessibilityLabel("@\(member.name) 的会话操作")
+                .help("管理职责、交付状态与必要的接入选项")
+                .accessibilityLabel("@\(member.name) 的职责与交付操作；状态：\(status.0)；\(statusDetail)")
 
                 Button(action: onStop) {
                     Label("停止", systemImage: "stop.fill")
@@ -1762,17 +1830,11 @@ private struct HarvisGroupMemberRow: View {
 }
 
 @MainActor
-private struct HarvisGroupMessageRow: View {
-    let message: HarvisGroupMessage
-    let group: HarvisGroupConversation
-    let homeLabel: String?
-    let theme: HarvisTheme
-
-    private var isUser: Bool { message.speaker == "你" }
-    private var isSystem: Bool { message.speaker == "系统" }
-    private var dispatches: [HarvisGroupDispatch] { group.dispatches.filter { $0.messageID == message.id } }
-
-    private var ownerDecision: HarvisGroupOwnerDecision? {
+private enum HarvisGroupMessagePresentation {
+    static func ownerDecision(
+        for message: HarvisGroupMessage,
+        in group: HarvisGroupConversation
+    ) -> HarvisGroupOwnerDecision? {
         guard let dispatchID = message.dispatchID,
               let dispatch = group.dispatches.first(where: { $0.id == dispatchID }),
               dispatch.memberID == message.memberID else { return nil }
@@ -1787,6 +1849,31 @@ private struct HarvisGroupMessageRow: View {
         guard isOwnerDecision,
               let data = message.text.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(HarvisGroupOwnerDecision.self, from: data)
+    }
+
+    static func displayText(for message: HarvisGroupMessage, in group: HarvisGroupConversation) -> String {
+        guard let decision = ownerDecision(for: message, in: group) else { return message.text }
+        let assignments = decision.assignments.map { assignment in
+            let name = group.members.first(where: { $0.id == assignment.memberID })?.name ?? "已移除成员"
+            return "@\(name)：\(assignment.task)"
+        }
+        return ([decision.summary] + assignments).joined(separator: "；")
+    }
+}
+
+@MainActor
+private struct HarvisGroupMessageRow: View {
+    let message: HarvisGroupMessage
+    let group: HarvisGroupConversation
+    let homeLabel: String?
+    let theme: HarvisTheme
+
+    private var isUser: Bool { message.speaker == "你" }
+    private var isSystem: Bool { message.speaker == "系统" }
+    private var dispatches: [HarvisGroupDispatch] { group.dispatches.filter { $0.messageID == message.id } }
+
+    private var ownerDecision: HarvisGroupOwnerDecision? {
+        HarvisGroupMessagePresentation.ownerDecision(for: message, in: group)
     }
 
     private var metadata: String {
@@ -2569,14 +2656,6 @@ private struct HarvisNativeHistoryEntry: Identifiable {
     }
 }
 
-private struct HarvisGroupTimelineMessageFramesPreferenceKey: PreferenceKey {
-    static let defaultValue: [UUID: CGRect] = [:]
-
-    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
-    }
-}
-
 @MainActor
 private struct HarvisGroupTimelineScrollObserver: NSViewRepresentable {
     let onAtBottomChange: (Bool) -> Void
@@ -2802,14 +2881,20 @@ private struct HarvisGroupMemorySheet: View {
 
 @MainActor
 private struct HarvisGroupMCPConfigurationSheet: View {
+    let group: HarvisGroupConversation
     let serviceStatus: String
     let socketPath: String
     let configuration: String
+    let installationText: String
     let theme: HarvisTheme
     let onRetry: () -> Void
 
+    private enum CopiedContent: Equatable { case installationText, configuration }
+
     @Environment(\.dismiss) private var dismiss
-    @State private var copied = false
+    @State private var copiedContent: CopiedContent?
+
+    private var serviceID: String { "harvis-group:\(group.id.uuidString)" }
 
     private var statusLooksUnhealthy: Bool {
         ["失败", "错误", "未就绪"].contains { serviceStatus.localizedCaseInsensitiveContains($0) }
@@ -2818,16 +2903,32 @@ private struct HarvisGroupMCPConfigurationSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 11) {
             HStack {
-                Text("后台接入配置").harvisFont(.title3.weight(.semibold))
+                Text("接入智能体服务").harvisFont(.title3.weight(.semibold))
                 Spacer()
                 Button("关闭") { dismiss() }
                     .keyboardShortcut(.cancelAction)
             }
 
-            Text("开启后，其他本机智能体可调用本群；关闭窗口后，已开始的协作任务仍继续，退出 HarvisBar 后后台接入不可用。关闭后台接入不会停止已开始的协作任务；请用“停止”取消。")
-                .harvisFont(.caption)
-                .foregroundColor(theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(group.title).harvisFont(.subheadline.weight(.semibold)).lineLimit(1)
+                    Spacer(minLength: 4)
+                    Label("群主负责分配与验收", systemImage: "crown.fill")
+                        .harvisFont(.caption2.weight(.semibold))
+                        .foregroundColor(theme.accent)
+                        .lineLimit(1)
+                }
+                Text("服务 ID · \(serviceID)")
+                    .harvisFont(.caption2.monospaced())
+                    .foregroundColor(theme.muted)
+                    .textSelection(.enabled)
+                Text("外部智能体可提交任务、查询状态、获取交付。")
+                    .harvisFont(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(10)
+            .background(theme.surfaceAlt.opacity(theme.usesFlatSurfaces ? 1 : 0.65))
+            .clipShape(RoundedRectangle(cornerRadius: 7))
 
             HStack(spacing: 6) {
                 Circle().fill(statusLooksUnhealthy ? .red : theme.positive).frame(width: 7, height: 7)
@@ -2839,11 +2940,16 @@ private struct HarvisGroupMCPConfigurationSheet: View {
                     .controlSize(.small)
             }
 
-            Text("本机 socket：\(socketPath)")
-                .harvisFont(.caption2.monospaced())
-                .foregroundColor(theme.muted)
-                .textSelection(.enabled)
-                .lineLimit(2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("本机 socket：\(socketPath)")
+                    .harvisFont(.caption2.monospaced())
+                    .foregroundColor(theme.muted)
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+                Text("HTTP 接入请按接口文档配置鉴权；此处提供本机 MCP 配置。")
+                    .harvisFont(.caption2)
+                    .foregroundColor(theme.muted)
+            }
 
             ScrollView([.vertical, .horizontal]) {
                 Text(configuration)
@@ -2856,27 +2962,47 @@ private struct HarvisGroupMCPConfigurationSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(theme.line, lineWidth: 1))
             .accessibilityIdentifier("harvis.group-chat.mcp-configuration")
+            .frame(minHeight: 120, maxHeight: .infinity)
 
-            Text("复制后粘贴到需要接入的本机智能体 MCP 设置；此处不会自动修改其他账号。")
+            Text("复制接入说明包含本群 ID、MCP JSON 与使用步骤；复制后粘贴至目标智能体设置。不会自动修改其他账号。")
                 .harvisFont(.caption2)
                 .foregroundColor(theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack {
-                Spacer()
                 Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(configuration, forType: .string)
-                    copied = true
+                    copy(installationText, content: .installationText)
                 } label: {
-                    Label(copied ? "已复制配置" : "复制 MCP 配置", systemImage: copied ? "checkmark" : "doc.on.doc")
+                    Label(
+                        copiedContent == .installationText ? "已复制接入说明" : "复制接入说明",
+                        systemImage: copiedContent == .installationText ? "checkmark" : "doc.on.doc"
+                    )
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                Spacer()
+                Button {
+                    copy(configuration, content: .configuration)
+                } label: {
+                    Label(
+                        copiedContent == .configuration ? "已复制配置" : "复制 MCP 配置",
+                        systemImage: copiedContent == .configuration ? "checkmark" : "doc.on.doc"
+                    )
+                }
+                .buttonStyle(.bordered)
                 .controlSize(.small)
             }
         }
         .padding(16)
-        .frame(width: 560, height: 500)
+        .frame(width: 560, height: 560)
         .background(theme.background)
         .accessibilityIdentifier("harvis.group-chat.mcp-configuration-sheet")
+    }
+
+    private func copy(_ text: String, content: CopiedContent) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        copiedContent = content
     }
 }

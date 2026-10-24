@@ -1114,6 +1114,39 @@ final class HarvisRuntimeModel: ObservableObject {
         return text
     }
 
+    func groupAgentServiceInstallationText(group: HarvisGroupConversation) -> String {
+        let owner = group.members.first { $0.id == group.ownerMemberID }?.name ?? "尚未设置"
+        let access = group.backgroundEnabled ? "已开启" : "尚未开启，请先在 HarvisBar 中开启本群的后台接入"
+        let responsibilities = group.members.map { "- @\($0.name)\($0.id == group.ownerMemberID ? "（群主）" : "")：\($0.role)" }.joined(separator: "\n")
+        return """
+        接入 Harvis 智能体服务：\(group.title)
+        服务 ID：harvis-group:\(group.id.uuidString)
+        groupID：\(group.id.uuidString)
+        群主：\(owner)
+        后台接入：\(access)
+
+        这是可提交目标并取得交付的协作智能体服务。群主负责拆解任务、调度成员、复核和汇总；调用方不需要创建或管理内部任务会话。
+
+        成员职责：
+        \(responsibilities)
+
+        将以下配置合并到调用方的 MCP 服务配置中，保留原有服务，然后让调用方重新加载 MCP：
+        ```json
+        \(groupMCPConfiguration)
+        ```
+
+        调用约定：
+        1. 通过 MCP tools/list 发现 harvis_group_* 工具。调用 harvis_group_list，按上述 groupID 选择服务；service 字段描述其交付能力。
+        2. 调用 harvis_group_send，参数为 {"groupID":"\(group.id.uuidString)","requestID":"每次新任务的唯一标识","text":"目标、约束和验收标准"}。默认由群主自主分派，无需指定成员或会话。
+        3. 保存返回的 runID。回执表示已受理；调用 harvis_group_status 查询该 run 和各成员的工作状态、当前任务。
+        4. 只有 run.state=completed 才表示群主完成验收。使用 run.summary，并调用 harvis_group_results 获取 deliveries 和完整结果；首次读取 afterSequence=0，按 nextSequence/hasMore 继续翻页。
+        5. 请求超时重试时必须沿用原 requestID 和原参数，避免重复执行。需要停止时调用 harvis_group_cancel，传入 groupID 与 runID。待审批、阻塞或失败时向用户说明，不假报完成。
+
+        使用条件：HarvisBar 保持运行，且本群后台接入开启。关闭群聊窗口仍可执行；退出应用时服务不可用。权限只覆盖本群授权的共享项目；外部调用不能扩大权限或代替用户批准。
+        HTTP 客户端也可使用同一服务的 /group-chat/list、status、send、results、cancel、recover 路由，但须先配置本机 HTTP 服务及至少 32 字节的 Bearer token；MCP 配置不包含或创建 HTTP 凭据。
+        """
+    }
+
     func retryGroupControlService() {
         Task { await activateGroupChat() }
     }
