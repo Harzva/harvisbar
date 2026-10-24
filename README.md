@@ -24,12 +24,27 @@ application download.
   actions to open, resume, or launch supported local clients.
 - Provide a native conversation workspace with project organization, search,
   task and supervisor views, and reviewable local workflow state.
+- Coordinate Codex members in persistent group chats, with an owner that can
+  delegate work, review deliveries, and resume its original native conversation.
 - Expose the supporting Harvis runtime through CLI, local HTTP, and MCP
   adapters, with additional opt-in integrations for other local agent tools.
 
 Availability varies by the installed client, account, configured integration,
 and macOS permissions. Features that send a prompt or perform a local mutation
 are separate from configuration discovery.
+
+### Member groups and agent access
+
+The [member group guide](docs/group-chat-v2.md) describes independent member
+conversations, project permissions, saved drafts, owner orchestration, and
+visible work status. Groups can expose a local MCP service with durable request
+receipts; the group window can copy its connection instructions. See the
+[group control API](docs/group-control-api.md) for discovery, submission,
+progress, results, cancellation, and recovery.
+
+HarvisBar must remain running for group execution and local service access.
+The optional HTTP route requires explicit bearer-token configuration; enabling
+a group's background-access setting does not publish an internet endpoint.
 
 ### Homes and models
 
