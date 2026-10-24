@@ -172,6 +172,8 @@ final class HarvisRuntimeModel: ObservableObject {
     @Published private(set) var isTaskProgressRefreshing = false
     @Published var permissionProbe: PermissionProbe?
     @Published private(set) var permissionVerificationState: HarvisPermissionVerificationState = .unverified
+    @Published private(set) var permissionProbeFailureMessage: String?
+    @Published private(set) var workspaceAccessPauseReason: String?
     @Published private(set) var isPermissionProbeRefreshing = false
     @Published var services: ServiceManagerStatus?
     @Published var harnessTestResult: AgentHarnesses?
@@ -436,6 +438,7 @@ final class HarvisRuntimeModel: ObservableObject {
     let managedConversationInsights: ManagedConversationInsightCoordinator
     let taskProgressLoader: any HarvisTaskProgressLoading
     let taskProgressDidPublish: (@MainActor @Sendable (HarvisTaskProgressPublishEvent) -> Void)?
+    let accessPreferences: HarvisAccessPreferences
     let permissionProbeLoader: PermissionProbeLoader?
     var timer: AnyCancellable?
     var conversationManagementStateObserver: AnyCancellable?
@@ -489,6 +492,7 @@ final class HarvisRuntimeModel: ObservableObject {
     ) {
         let delivery = codexTaskDelivery ?? CodexTaskDeliveryCoordinator()
         self.defaults = defaults
+        self.accessPreferences = HarvisAccessPreferences(defaults: defaults)
         self.groupDataDirectory = groupDataDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("HarvisBar/GroupChat", isDirectory: true)
         // A fixture's socket stays beside its injected stores, never beside
@@ -699,7 +703,7 @@ final class HarvisRuntimeModel: ObservableObject {
     var visibleCodexHomes: [CodexHome] {
         canonicalCodexAccounts(
             codexHomes.filter {
-                $0.isCodexAccountCandidate && !hiddenCodexHomeIDs.contains($0.id)
+                $0.isCodexAccountCandidate && permitsDiscoveredCodexHome($0) && !hiddenCodexHomeIDs.contains($0.id)
             }
         )
     }
@@ -707,7 +711,7 @@ final class HarvisRuntimeModel: ObservableObject {
     var hiddenCodexHomes: [CodexHome] {
         canonicalCodexAccounts(
             codexHomes.filter {
-                $0.isCodexAccountCandidate && hiddenCodexHomeIDs.contains($0.id)
+                $0.isCodexAccountCandidate && permitsDiscoveredCodexHome($0) && hiddenCodexHomeIDs.contains($0.id)
             }
         )
     }
@@ -953,13 +957,36 @@ final class HarvisRuntimeModel: ObservableObject {
     }
 
     var workspaceDiskInfo: DiskInfo? {
-        Self.diskInfo(for: expanded(workspaceRoot))
+        guard allowsAutomaticWorkspaceAccess else { return nil }
+        return Self.diskInfo(for: expanded(workspaceRoot))
+    }
+
+    var allowsAutomaticWorkspaceAccess: Bool {
+        accessPreferences.allowsWorkspaceAccess(workspaceRoot: workspaceRoot, profileRoot: profileRoot)
+    }
+
+    static func workspaceStatusQuery(workspaceRoot: String, profileRoot: String, allowFilesystemAccess: Bool) -> [URLQueryItem] {
+        [URLQueryItem(name: "root", value: workspaceRoot), URLQueryItem(name: "profile_root", value: profileRoot),
+         URLQueryItem(name: "full", value: allowFilesystemAccess ? "true" : "false")]
+    }
+
+    private func suspendWorkspaceAccess(workspaceRoot requestedRoot: String, profileRoot requestedProfile: String, reason: String) {
+        guard accessPreferences.allowsWorkspaceAccess(workspaceRoot: requestedRoot, profileRoot: requestedProfile) else { return }
+        accessPreferences.revokeWorkspaceAccess()
+        workspaceAccessPauseReason = reason
+    }
+
+    static func isWorkspaceAccessDenied(_ error: Error) -> Bool {
+        if case let HarvisBarError.httpStatus(status, _) = error { return status == 403 }
+        let value = error as NSError
+        if value.domain == NSPOSIXErrorDomain { return value.code == Int(EPERM) || value.code == Int(EACCES) }
+        return value.domain == NSCocoaErrorDomain && [NSFileReadNoPermissionError, NSFileWriteNoPermissionError].contains(value.code)
     }
 
     var firstRunSteps: [FirstRunStep] {
         let workspaceConfigured = !workspaceRoot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let profileConfigured = !profileRoot.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let permissionOK = permissionVerificationState == .verifiedReady
+        let permissionOK = permissionVerificationState == .verifiedReady && allowsAutomaticWorkspaceAccess
         let httpService = services?.service(named: "http")
         let tickService = services?.service(named: "tick")
         let httpReady = httpService?.listening ?? httpService?.running ?? false
@@ -984,7 +1011,7 @@ final class HarvisRuntimeModel: ObservableObject {
                 systemImage: "key"
             ),
             FirstRunStep(
-                title: "Full Disk Access",
+                title: "Workspace Access",
                 detail: permissionSummary,
                 ok: permissionOK,
                 systemImage: "lock.shield"
@@ -1009,13 +1036,15 @@ final class HarvisRuntimeModel: ObservableObject {
     private var permissionSummary: String {
         switch permissionVerificationState {
         case .verifiedReady:
-            return "Workspace/profile full permission probe passed."
+            return allowsAutomaticWorkspaceAccess
+                ? "Selected workspace/profile read-write check passed; this does not verify system Full Disk Access."
+                : "Workspace background reads are paused. Review access and run an explicit check."
         case .verifiedBlocked:
-            return "Full permission probe found a blocked workspace or profile path."
+            return "The selected workspace or profile could not be read/written. Review access, then check explicitly."
         case .stale:
-            return "The last full permission result is stale; retry verification."
+            return "The last workspace access check is stale. Run a check when needed."
         case .unverified:
-            return "Full permission access has not been verified."
+            return "Workspace access has not been checked. No background write test will run."
         }
     }
 
@@ -1036,6 +1065,7 @@ final class HarvisRuntimeModel: ObservableObject {
     }
 
     func start() {
+        guard accessPreferences.hasSeenPermissionGuide, !HarvisAppMode.isPermissionFixture else { return }
         guard timer == nil else { return }
         startupTasks = HarvisStartupScheduler.launch(
             recoverDelivery: { [weak self] in
@@ -1194,16 +1224,15 @@ final class HarvisRuntimeModel: ObservableObject {
         // Keep the optional task lane concurrent with the remaining full
         // refresh. A slow task store must not delay bar/status or permission
         // projection, while refreshAll still owns one bounded refresh cycle.
-        async let taskProgressRefresh: Void = refreshTaskProgress()
+        async let taskProgressRefresh: Void = refreshTaskProgressAutomatically()
 
         await refreshRemoteStudio()
 
+        let statusRoot = workspaceRoot
+        let statusProfile = profileRoot
         do {
-            let query = [
-                URLQueryItem(name: "root", value: expanded(workspaceRoot)),
-                URLQueryItem(name: "profile_root", value: expanded(profileRoot)),
-                URLQueryItem(name: "full", value: "true")
-            ]
+            let query = Self.workspaceStatusQuery(workspaceRoot: expanded(statusRoot),
+                profileRoot: expanded(statusProfile), allowFilesystemAccess: allowsAutomaticWorkspaceAccess)
             let status = try await fetch("/bar/status", query: query, as: BarStatus.self)
             barStatus = status
             services = Self.serviceManagerStatus(from: status.serviceHealth)
@@ -1211,6 +1240,10 @@ final class HarvisRuntimeModel: ObservableObject {
         } catch {
             barStatus = nil
             lastError = clean(error.localizedDescription)
+            if Self.isWorkspaceAccessDenied(error) {
+                suspendWorkspaceAccess(workspaceRoot: statusRoot, profileRoot: statusProfile,
+                    reason: "工作区访问被拒绝，已暂停后台读取。请在权限中心确认目录访问后手动重试。")
+            }
         }
 
         await refreshPermissionProbe()
@@ -1241,32 +1274,25 @@ final class HarvisRuntimeModel: ObservableObject {
         lastFullPermissionProbeAttemptAt = nil
         lastCompletePermissionProbeAt = nil
         permissionProbe = nil
+        permissionProbeFailureMessage = nil
         permissionVerificationState = .unverified
     }
 
-    /// Runs the write-backed permission probe at most once per interval.
-    ///
-    /// `force=true` is reserved for an explicit user retry and supersedes an
-    /// older probe. Periodic refreshes never cancel an in-flight explicit
-    /// probe and never perform the lightweight request as FDA authority.
+    /// Background refresh is passive. Only an explicit user action (`force`) may
+    /// run the write-backed workspace check; a denial never schedules a retry.
     func refreshPermissionProbe(
         force: Bool = false,
         now: Date = Date()
     ) async {
-        if !force {
-            guard !isPermissionProbeRefreshing else { return }
-            if let attemptedAt = lastFullPermissionProbeAttemptAt {
-                let elapsed = now.timeIntervalSince(attemptedAt)
-                if elapsed >= 0,
-                   elapsed < Self.fullPermissionProbeRefreshInterval {
-                    return
-                }
-            }
+        guard force else {
+            retainRecentPermissionVerificationOrDegrade(at: now)
+            return
         }
 
         permissionProbeLoadGeneration &+= 1
         let generation = permissionProbeLoadGeneration
         permissionProbeLoadTask?.cancel()
+        permissionProbeFailureMessage = nil
         isPermissionProbeRefreshing = true
         lastFullPermissionProbeAttemptAt = now
 
@@ -1304,12 +1330,19 @@ final class HarvisRuntimeModel: ObservableObject {
         switch result {
         case .success(let payload):
             if payload.isCompleteFullProbe {
+                permissionProbeFailureMessage = nil
                 permissionProbe = payload.legacyProjection
                 lastCompletePermissionProbeAt = now
-                permissionVerificationState = payload.isVerifiedReady
-                    ? .verifiedReady
-                    : .verifiedBlocked
+                permissionVerificationState = payload.isVerifiedReady ? .verifiedReady : .verifiedBlocked
+                if payload.isVerifiedReady {
+                    accessPreferences.allowWorkspaceAccess(workspaceRoot: workspaceRoot, profileRoot: profileRoot)
+                    workspaceAccessPauseReason = nil
+                } else {
+                    accessPreferences.revokeWorkspaceAccess()
+                    workspaceAccessPauseReason = "工作区访问检查未通过，已暂停后台读取。请确认访问权限后手动重试。"
+                }
             } else {
+                permissionProbeFailureMessage = "本地服务未返回完整的目录检查结果，请稍后手动重试。"
                 retainRecentPermissionVerificationOrDegrade(at: now)
             }
         case .failure(let error):
@@ -1317,8 +1350,28 @@ final class HarvisRuntimeModel: ObservableObject {
                 lastFullPermissionProbeAttemptAt = nil
                 return
             }
+            permissionProbeFailureMessage = permissionProbeFailureDescription(error)
             retainRecentPermissionVerificationOrDegrade(at: now)
+            if Self.isWorkspaceAccessDenied(error) {
+                accessPreferences.revokeWorkspaceAccess()
+                workspaceAccessPauseReason = "访问检查请求被拒绝，已暂停后台读取。请检查权限后手动重试。"
+                if lastCompletePermissionProbeAt != nil { permissionVerificationState = .stale }
+            }
         }
+    }
+
+    private func permissionProbeFailureDescription(_ error: Error) -> String {
+        if let error = mapNetworkError(error, path: "/permission-probe") as? HarvisBarError {
+            switch error {
+            case .offline:
+                return "本地服务未连接，未完成目录检查。请启动服务后手动重试。"
+            case .timeout:
+                return "本地服务响应超时，未完成目录检查。请确认服务已启动后手动重试。"
+            default:
+                break
+            }
+        }
+        return "未完成目录检查，请稍后手动重试。"
     }
 
     private func retainRecentPermissionVerificationOrDegrade(at now: Date) {
@@ -1335,7 +1388,14 @@ final class HarvisRuntimeModel: ObservableObject {
         permissionVerificationState = .stale
     }
 
+    func refreshTaskProgressAutomatically() async {
+        guard allowsAutomaticWorkspaceAccess else { return }
+        await refreshTaskProgress()
+    }
+
     func refreshTaskProgress() async {
+        let requestedRoot = workspaceRoot
+        let requestedProfile = profileRoot
         taskProgressLoadGeneration &+= 1
         let generation = taskProgressLoadGeneration
         taskProgressLoadTask?.cancel()
@@ -1378,6 +1438,15 @@ final class HarvisRuntimeModel: ObservableObject {
                 return
             }
             taskProgressFailure = failure
+            if failure == .permissionDenied || Self.isWorkspaceAccessDenied(error) {
+                suspendWorkspaceAccess(workspaceRoot: requestedRoot, profileRoot: requestedProfile,
+                    reason: "任务进度访问被拒绝，已暂停工作区后台读取。请确认访问权限后手动重试。")
+            } else if error as? HarvisTaskProgressClientError == .unavailableSnapshot {
+                // The API explicitly skipped an unreadable store. This is not a
+                // network failure and must not be retried against TCC every 2s.
+                suspendWorkspaceAccess(workspaceRoot: requestedRoot, profileRoot: requestedProfile,
+                    reason: "任务存储暂时不可读，已暂停工作区后台读取。请检查目录访问后手动重试。")
+            }
             taskProgressDidPublish?(.failure(failure))
         }
     }

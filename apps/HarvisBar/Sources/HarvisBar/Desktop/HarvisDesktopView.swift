@@ -88,6 +88,7 @@ private struct HarvisNetworkWebView: NSViewRepresentable {
 
 struct HarvisDesktopView: View {
     @EnvironmentObject var model: HarvisRuntimeModel
+    @ObservedObject var preferences: HarvisBarPreferences = .shared
 
     private var theme: HarvisTheme { model.theme }
 
@@ -128,11 +129,16 @@ struct HarvisDesktopView: View {
                             .foregroundColor(theme.usesFlatSurfaces ? theme.selectionText : .white)
                     )
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("H.A.R.V.I.S. Desktop")
+                    Text("\(preferences.displayName) Desktop")
                         .font(.system(size: 15, weight: .semibold))
-                    Text("Local teammate cockpit")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: 232, alignment: .leading)
+                        .help(preferences.displayName)
+                    Text("H.A.R.V.I.S. · Local teammate cockpit")
                         .font(.caption)
                         .foregroundColor(theme.muted)
+                        .lineLimit(1)
                 }
             }
 
@@ -275,8 +281,11 @@ struct HarvisDesktopView: View {
                         DesktopActionButton(title: "Initialize", systemImage: "wand.and.stars", theme: theme) {
                             model.initializeFirstRun()
                         }
-                        DesktopActionButton(title: "FDA", systemImage: "lock.shield", theme: theme) {
-                            model.openFullDiskAccessSettings()
+                        DesktopActionButton(title: "权限设置", systemImage: "hand.raised", theme: theme) {
+                            HarvisPermissionsAndProfileWindowController.shared.show(
+                                model: model,
+                                preferences: preferences
+                            )
                         }
                     }
                 }

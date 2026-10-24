@@ -215,7 +215,7 @@ from harvis_app_bundle_contract import REQUIRED_MACOS_USAGE_DESCRIPTIONS
 
 info = {
     "CFBundleDevelopmentRegion": "en",
-    "CFBundleDisplayName": "H.A.R.V.I.S. Bar",
+    "CFBundleDisplayName": "HarvisBar",
     "CFBundleExecutable": "HarvisBar",
     "CFBundleIdentifier": bundle_id,
     "CFBundleIconFile": "HarvisBar",

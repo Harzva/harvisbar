@@ -79,7 +79,7 @@ extension HarvisPopoverView {
             }
 
             Menu {
-                Button("Harvis Desktop") { model.openDesktopApp() }
+                Button(preferences.displayName) { model.openDesktopApp() }
                 Button("Studio") { model.openStudio() }
                 Button("Panel") { model.openPanel() }
                 Button("Presence") { model.openPresence() }
@@ -104,8 +104,12 @@ extension HarvisPopoverView {
                 .frame(width: 30, height: 30)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 7) {
-                    Text("H.A.R.V.I.S.")
+                    Text(preferences.displayName)
                         .font(.system(size: 14, weight: .bold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: 148, alignment: .leading)
+                        .help(preferences.displayName)
                     Text(model.currentState)
                         .font(.caption2.bold())
                         .foregroundColor(model.tintColor)
@@ -177,11 +181,15 @@ extension HarvisPopoverView {
                     .disabled(model.isBusy)
 
                     Button {
-                        model.openFullDiskAccessSettings()
+                        HarvisPermissionsAndProfileWindowController.shared.show(
+                            model: model,
+                            preferences: preferences
+                        )
                     } label: {
-                        Label("FDA", systemImage: "lock.shield")
+                        Label("权限设置", systemImage: "hand.raised")
                             .frame(maxWidth: .infinity)
                     }
+                    .accessibilityIdentifier("harvis.permissions.guide.entry")
                 }
             }
         }

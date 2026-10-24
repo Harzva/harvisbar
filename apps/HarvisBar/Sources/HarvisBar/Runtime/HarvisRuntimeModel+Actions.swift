@@ -415,55 +415,75 @@ extension HarvisRuntimeModel {
         )
     }
 
+    nonisolated static var explicitCodexHomePaths: [String] {
+        let environment = ProcessInfo.processInfo.environment
+        return [environment["CODEX_HOME"]].compactMap { $0 }
+            + (environment["HARVIS_CODEX_HOMES"]?.split(separator: ":").map(String.init) ?? [])
+    }
+
+    nonisolated static func codexHomeDiscoveryArguments(includeExternalLaunchers: Bool) -> [String] {
+        ["codex", "homes"] + (includeExternalLaunchers ? ["--include-external-launchers"] : [])
+    }
+
+    private nonisolated static func externalCodexLauncherRoots(userRootPath: String) -> [String] {
+        ["open-codex-launcher", "codexuse-desktop"].map {
+            URL(fileURLWithPath: userRootPath, isDirectory: true)
+                .appendingPathComponent("Library/Application Support/\($0)/profile-homes", isDirectory: true)
+                .standardizedFileURL.path
+        }
+    }
+
+    nonisolated static func permitsCodexHomeDiscoveryPath(
+        _ path: String, source: String? = nil, includeExternalLaunchers: Bool,
+        userRootPath: String = FileManager.default.homeDirectoryForCurrentUser.path,
+        explicitHomePaths: [String] = []
+    ) -> Bool {
+        guard !includeExternalLaunchers else { return true }
+        // Lexical comparison only: a disabled source must not be statted or canonicalized.
+        let normalized = URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true).standardizedFileURL.path
+        if explicitHomePaths.contains(where: {
+            URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath, isDirectory: true).standardizedFileURL.path == normalized
+        }) { return true }
+        if source == "open-codex-launcher" || source == "codexuse-desktop" { return false }
+        return !externalCodexLauncherRoots(userRootPath: userRootPath).contains {
+            normalized == $0 || normalized.hasPrefix($0 + "/")
+        }
+    }
+
+    func permitsDiscoveredCodexHome(_ home: CodexHome) -> Bool {
+        Self.permitsCodexHomeDiscoveryPath(home.path, source: home.source,
+            includeExternalLaunchers: accessPreferences.externalHomeDiscoveryEnabled,
+            explicitHomePaths: Self.explicitCodexHomePaths)
+    }
+
     nonisolated static func codexHomeDiscoveryFingerprint(
         userRootPath: String = FileManager.default.homeDirectoryForCurrentUser.path,
-        additionalHomePaths: [String] = []
+        additionalHomePaths: [String] = [], includeExternalLaunchers: Bool = false,
+        explicitHomePaths: [String] = []
     ) -> CodexHomeDiscoveryFingerprint {
         let fileManager = FileManager.default
-        let userRoot = URL(fileURLWithPath: userRootPath, isDirectory: true)
-            .standardizedFileURL
+        let userRoot = URL(fileURLWithPath: userRootPath, isDirectory: true).standardizedFileURL
         var homeURLs = [userRoot.appendingPathComponent(".codex", isDirectory: true)]
-        let groupedRoots = [
-            userRoot.appendingPathComponent(".codex-managed-agent/accounts", isDirectory: true),
-            userRoot.appendingPathComponent(
-                "Library/Application Support/open-codex-launcher/profile-homes",
-                isDirectory: true
-            ),
-            userRoot.appendingPathComponent(
-                "Library/Application Support/codexuse-desktop/profile-homes",
-                isDirectory: true
-            )
-        ]
-        for root in groupedRoots {
-            let children = (try? fileManager.contentsOfDirectory(
-                at: root,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsSubdirectoryDescendants]
-            )) ?? []
-            homeURLs.append(contentsOf: children.filter { url in
-                (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-            })
+        var groupedRoots = [userRoot.appendingPathComponent(".codex-managed-agent/accounts", isDirectory: true)]
+        if includeExternalLaunchers {
+            groupedRoots += externalCodexLauncherRoots(userRootPath: userRootPath).map { URL(fileURLWithPath: $0, isDirectory: true) }
         }
-        homeURLs.append(contentsOf: additionalHomePaths.map {
-            URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL
-        })
-
-        let uniqueHomes = Dictionary(
-            grouping: homeURLs,
-            by: { $0.standardizedFileURL.path }
-        ).compactMap { $0.value.first }
+        for root in groupedRoots {
+            let children = (try? fileManager.contentsOfDirectory(at: root,
+                includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsSubdirectoryDescendants])) ?? []
+            homeURLs.append(contentsOf: children.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true })
+        }
+        homeURLs += (additionalHomePaths + explicitHomePaths).filter {
+            permitsCodexHomeDiscoveryPath($0, includeExternalLaunchers: includeExternalLaunchers,
+                userRootPath: userRootPath, explicitHomePaths: explicitHomePaths)
+        }.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath, isDirectory: true).standardizedFileURL }
+        let uniqueHomes = Dictionary(grouping: homeURLs, by: { $0.standardizedFileURL.path }).compactMap { $0.value.first }
         let observedNames = ["auth.json", ".harvis-account.json", "config.toml"]
-        var entries: [String] = []
+        // Scope changes themselves must trigger rediscovery, even if no file changed.
+        var entries = ["external-launchers:\(includeExternalLaunchers)"]
         for home in uniqueHomes {
             entries.append(fileMetadataFingerprint(home, fileManager: fileManager))
-            for name in observedNames {
-                entries.append(
-                    fileMetadataFingerprint(
-                        home.appendingPathComponent(name, isDirectory: false),
-                        fileManager: fileManager
-                    )
-                )
-            }
+            for name in observedNames { entries.append(fileMetadataFingerprint(home.appendingPathComponent(name), fileManager: fileManager)) }
         }
         return CodexHomeDiscoveryFingerprint(entries: entries.sorted())
     }

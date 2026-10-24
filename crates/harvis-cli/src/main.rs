@@ -5,7 +5,7 @@ use harvis_integrations::agent_gateway::{agent_step, AgentStepOptions};
 use harvis_integrations::agent_harnesses::build_agent_harness_status;
 use harvis_integrations::codex_billing::read_codex_home_billing;
 use harvis_integrations::codex_homes::{
-    discover_codex_homes, launch_codex_cli, launch_codex_desktop, login_codex_home,
+    discover_codex_homes_with_options, launch_codex_cli, launch_codex_desktop, login_codex_home,
     resume_codex_cli,
 };
 use harvis_integrations::codex_threads::{
@@ -1029,7 +1029,11 @@ enum ServiceManagerCommand {
 #[derive(Debug, Subcommand)]
 enum CodexCommand {
     /// Discover local CODEX_HOME directories without returning credential values.
-    Homes,
+    Homes {
+        /// Explicitly include other launchers' profile directories. Disabled by default.
+        #[arg(long)]
+        include_external_launchers: bool,
+    },
     /// List local Codex threads for one selected CODEX_HOME.
     Chats {
         #[arg(long)]
@@ -1945,10 +1949,10 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&response)?);
         }
         Command::Codex { command } => match command {
-            CodexCommand::Homes => {
+            CodexCommand::Homes { include_external_launchers } => {
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&discover_codex_homes()?)?
+                    serde_json::to_string_pretty(&discover_codex_homes_with_options(include_external_launchers)?)?
                 );
             }
             CodexCommand::Chats { home, limit } => {

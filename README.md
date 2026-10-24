@@ -105,6 +105,29 @@ Inspect the runtime commands without starting an interactive agent session:
 Discovery output can contain account labels, email addresses, provider hosts,
 and local paths. Review and redact it before sharing.
 
+### Permissions and your Bar's name
+
+HarvisBar opens **权限与个性化** before its first background refresh. You can
+continue with basic features and return through the gear button or Settings.
+Workspace monitoring, historical project reads and discovery of other launchers'
+Homes start disabled. Enable the displayed workspace/profile scope, or use
+**验证并启用** to check it first. Merely choosing a folder changes the path.
+Changing either directory requires a new choice. Full write checks run only
+when you explicitly request them.
+
+The guide explains Accessibility, Screen Recording, Full Disk Access and
+Automation separately, with System Settings shortcuts and a draggable app icon.
+A successful workspace check proves access to those paths; it does not certify
+Full Disk Access. HarvisBar does not accept macOS permission dialogs for you.
+
+The same window saves a personal display name (1–40 characters, including
+Chinese and emoji) for the menu bar and windows. Reset restores `HarvisBar`.
+System Settings continues to use the product name and stable bundle identity.
+
+CLI Home discovery includes the default, managed and explicitly configured
+Homes. To opt into other launchers' profiles for one command, use
+`./scripts/harvis codex homes --include-external-launchers`.
+
 ### Include an existing custom Home
 
 Use a platform path list in `HARVIS_CODEX_HOMES` when starting HarvisBar. On

@@ -128,6 +128,52 @@ final class HarvisTaskProgressIsolationTests: XCTestCase {
     }
 
     @MainActor
+    func testAutomaticWorkspaceReadsRequireConsentAndStopAfterPermissionDenial() async throws {
+        let fresh = try Self.snapshot(taskID: "manual", percent: 20)
+        let loader = HarvisTaskProgressOutcomeLoader([.posixPermission, .success(fresh)])
+        let model = makeModel(loader: loader)
+        await model.refreshTaskProgressAutomatically()
+        var count = await loader.requestCount()
+        XCTAssertEqual(count, 0)
+        XCTAssertEqual(HarvisRuntimeModel.workspaceStatusQuery(workspaceRoot: model.workspaceRoot, profileRoot: model.profileRoot,
+            allowFilesystemAccess: model.allowsAutomaticWorkspaceAccess).last?.value, "false")
+        model.accessPreferences.allowWorkspaceAccess(workspaceRoot: model.workspaceRoot, profileRoot: model.profileRoot)
+        await model.refreshTaskProgressAutomatically()
+        XCTAssertFalse(model.allowsAutomaticWorkspaceAccess)
+        XCTAssertNotNil(model.workspaceAccessPauseReason)
+        for _ in 0 ..< 4 { await model.refreshTaskProgressAutomatically() }
+        count = await loader.requestCount()
+        XCTAssertEqual(count, 1, "A rejected folder must not be revisited by the 2s lane")
+        await model.refreshTaskProgress()
+        count = await loader.requestCount()
+        XCTAssertEqual(count, 2, "An explicit manual read remains possible")
+        XCTAssertEqual(model.taskProgressLastSuccess?.current?.taskId, "manual")
+        XCTAssertNil(model.lastError, "Task lane still cannot overwrite global runtime state")
+    }
+
+    @MainActor
+    func testWorkspaceScopeChangesAndSkippedStoreStopAutomaticReadsButNetworkTimeoutDoesNotRevokeConsent() async throws {
+        let loader = HarvisTaskProgressOutcomeLoader([.failure(.timeout), .failure(.unavailableSnapshot)])
+        let model = makeModel(loader: loader)
+        model.accessPreferences.allowWorkspaceAccess(workspaceRoot: model.workspaceRoot, profileRoot: model.profileRoot)
+        let original = model.workspaceRoot
+        model.workspaceRoot = "/fixture/different-workspace"
+        await model.refreshTaskProgressAutomatically()
+        let none = await loader.requestCount()
+        XCTAssertEqual(none, 0)
+        model.workspaceRoot = original
+        await model.refreshTaskProgressAutomatically()
+        XCTAssertTrue(model.allowsAutomaticWorkspaceAccess, "Transport failure is not evidence of permission denial")
+        await model.refreshTaskProgressAutomatically()
+        XCTAssertFalse(model.allowsAutomaticWorkspaceAccess, "A skipped/unreadable store needs explicit retry rather than polling")
+        await model.refreshTaskProgressAutomatically()
+        let count = await loader.requestCount()
+        XCTAssertEqual(count, 2)
+        XCTAssertFalse(HarvisRuntimeModel.isWorkspaceAccessDenied(URLError(.notConnectedToInternet)))
+        XCTAssertTrue(HarvisRuntimeModel.isWorkspaceAccessDenied(NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES))))
+    }
+
+    @MainActor
     private func makeModel(
         loader: any HarvisTaskProgressLoading,
         initial: TaskProgressStatus? = nil

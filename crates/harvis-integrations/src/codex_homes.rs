@@ -117,9 +117,14 @@ pub struct CodexHomeLaunchResult {
 }
 
 pub fn discover_codex_homes() -> Result<CodexHomeList> {
+    discover_codex_homes_with_options(false)
+}
+
+pub fn discover_codex_homes_with_options(include_external_launchers: bool) -> Result<CodexHomeList> {
     let user_root = home_root()?;
     let explicit = env::var_os("CODEX_HOME").map(PathBuf::from);
-    discover_under(&user_root, explicit.as_deref())
+    let additional = env::var_os("HARVIS_CODEX_HOMES").map(|paths| env::split_paths(&paths).collect::<Vec<_>>()).unwrap_or_default();
+    discover_under(&user_root, explicit.as_deref(), include_external_launchers, &additional)
 }
 
 pub fn launch_codex_cli(home: &Path, working_dir: &Path) -> Result<CodexHomeLaunchResult> {
@@ -317,18 +322,20 @@ pub fn launch_codex_desktop(home: &Path) -> Result<CodexHomeLaunchResult> {
     ))
 }
 
-fn discover_under(user_root: &Path, explicit: Option<&Path>) -> Result<CodexHomeList> {
+fn discover_under(user_root: &Path, explicit: Option<&Path>, include_external_launchers: bool, additional: &[PathBuf]) -> Result<CodexHomeList> {
     let mut candidates: BTreeMap<PathBuf, String> = BTreeMap::new();
     add_candidate(&mut candidates, user_root.join(".codex"), "default");
     if let Some(path) = explicit {
         add_candidate(&mut candidates, expand_home(path, user_root), "environment");
     }
 
-    let grouped_roots = [
+    let mut grouped_roots = vec![
         (
             user_root.join(".codex-managed-agent/accounts"),
             "managed-agent",
         ),
+    ];
+    if include_external_launchers { grouped_roots.extend([
         (
             user_root.join("Library/Application Support/open-codex-launcher/profile-homes"),
             "open-codex-launcher",
@@ -337,19 +344,13 @@ fn discover_under(user_root: &Path, explicit: Option<&Path>) -> Result<CodexHome
             user_root.join("Library/Application Support/codexuse-desktop/profile-homes"),
             "codexuse-desktop",
         ),
-    ];
+    ]); }
     for (root, source) in grouped_roots {
         add_children(&mut candidates, &root, source);
     }
 
-    if let Some(extra_roots) = env::var_os("HARVIS_CODEX_HOMES") {
-        for path in env::split_paths(&extra_roots) {
-            add_candidate(
-                &mut candidates,
-                expand_home(&path, user_root),
-                "harvis-configured",
-            );
-        }
+    for path in additional {
+        add_candidate(&mut candidates, expand_home(path, user_root), "harvis-configured");
     }
 
     let mut items = Vec::new();
@@ -1604,6 +1605,24 @@ base_url = "https://proxy.example.test/v1"
     }
 
     #[test]
+    fn external_launcher_discovery_requires_opt_in_but_explicit_homes_remain_supported() {
+        let root = env::temp_dir().join(format!("harvis-homes-consent-{}", std::process::id()));
+        let default = root.join(".codex");
+        let managed = root.join(".codex-managed-agent/accounts/account");
+        let external = root.join("Library/Application Support/open-codex-launcher/profile-homes/account");
+        for home in [&default, &managed, &external] {
+            fs::create_dir_all(home).unwrap(); fs::write(home.join("config.toml"), "model = \"fixture\"\n").unwrap();
+        }
+        let passive = discover_under(&root, None, false, &[]).unwrap();
+        assert_eq!(passive.items.len(), 2);
+        assert!(passive.items.iter().all(|home| home.source != "open-codex-launcher"));
+        assert_eq!(discover_under(&root, None, true, &[]).unwrap().items.len(), 3);
+        assert_eq!(discover_under(&root, Some(&external), false, &[]).unwrap().items.len(), 3);
+        assert_eq!(discover_under(&root, None, false, &[external]).unwrap().items.len(), 3);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn discovers_default_and_launcher_api_profiles_without_reading_secret_values() {
         let root = env::temp_dir().join(format!("harvis-codex-homes-{}", std::process::id()));
         let default_home = root.join(".codex");
@@ -1621,7 +1640,7 @@ base_url = "https://proxy.example.test/v1"
         )
         .unwrap();
 
-        let result = discover_under(&root, None).unwrap();
+        let result = discover_under(&root, None, true, &[]).unwrap();
         assert_eq!(result.items.len(), 2);
         assert_eq!(result.items[0].label, "Default Codex");
         assert_eq!(result.items[1].label, "API · Example");
@@ -1684,7 +1703,7 @@ base_url = "https://proxy.example.test/v1"
         )
         .unwrap();
 
-        let result = discover_under(&root, None).unwrap();
+        let result = discover_under(&root, None, false, &[]).unwrap();
         let account = &result.items[0];
         assert_eq!(result.schema_version, "harvis.codex-home-list.v3");
         assert_eq!(account.account_note.as_deref(), Some("Research"));

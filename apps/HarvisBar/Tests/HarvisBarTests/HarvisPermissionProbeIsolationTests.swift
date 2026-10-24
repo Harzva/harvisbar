@@ -4,7 +4,7 @@ import XCTest
 
 final class HarvisPermissionProbeIsolationTests: XCTestCase {
     @MainActor
-    func testFullProbeUsesExactQueryAndIsThrottledWithoutErasingRecentSuccess() async throws {
+    func testOnlyExplicitFullProbeUsesExactQueryWhileBackgroundRefreshIsPassive() async throws {
         let loader = HarvisPermissionProbeSequenceLoader([
             .success(try Self.decode(Self.readyJSON)),
             .success(try Self.decode(Self.lightweightJSON)),
@@ -17,8 +17,13 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
         let startedAt = Date(timeIntervalSince1970: 1_000)
 
         await model.refreshPermissionProbe(now: startedAt)
+        let passiveRequestCount = await loader.requestCount()
+        XCTAssertEqual(passiveRequestCount, 0)
+        XCTAssertEqual(model.permissionVerificationState, .unverified)
+        await model.refreshPermissionProbe(force: true, now: startedAt)
 
         XCTAssertEqual(model.permissionVerificationState, .verifiedReady)
+        XCTAssertTrue(model.allowsAutomaticWorkspaceAccess)
         XCTAssertTrue(Self.fullDiskAccessStep(in: model).ok)
         XCTAssertEqual(model.permissionProbe?.checks?.count, 3)
         let initialRequestCount = await loader.requestCount()
@@ -54,7 +59,10 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
             )
         )
         let expiredRequestCount = await loader.requestCount()
-        XCTAssertEqual(expiredRequestCount, 3)
+        XCTAssertEqual(expiredRequestCount, 2, "expiry must never schedule a write-backed probe")
+        await model.refreshPermissionProbe(force: true, now: startedAt.addingTimeInterval(302))
+        let finalExplicitCount = await loader.requestCount()
+        XCTAssertEqual(finalExplicitCount, 3)
         XCTAssertEqual(model.permissionVerificationState, .stale)
         XCTAssertFalse(Self.fullDiskAccessStep(in: model).ok)
         XCTAssertEqual(model.permissionProbe?.checks?.count, 3, "the last complete projection stays available")
@@ -77,6 +85,7 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
         await model.refreshPermissionProbe(force: true, now: startedAt)
         XCTAssertEqual(model.permissionVerificationState, .unverified)
         XCTAssertNil(model.permissionProbe)
+        XCTAssertTrue(model.permissionProbeFailureMessage?.contains("未返回完整") == true)
         XCTAssertFalse(Self.fullDiskAccessStep(in: model).ok)
 
         await model.refreshPermissionProbe(
@@ -91,6 +100,7 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
             now: startedAt.addingTimeInterval(2)
         )
         XCTAssertEqual(model.permissionVerificationState, .verifiedBlocked)
+        XCTAssertNil(model.permissionProbeFailureMessage)
         XCTAssertEqual(model.permissionProbe?.checks?.count, 3)
         XCTAssertFalse(Self.fullDiskAccessStep(in: model).ok)
 
@@ -99,7 +109,41 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
             now: startedAt.addingTimeInterval(3)
         )
         XCTAssertEqual(model.permissionVerificationState, .verifiedReady)
+        XCTAssertNil(model.permissionProbeFailureMessage)
         XCTAssertTrue(Self.fullDiskAccessStep(in: model).ok)
+    }
+
+    @MainActor
+    func testExplicitProbeFailuresUseDedicatedFeedbackAndSuccessOrScopeChangeClearsIt() async throws {
+        let loader = HarvisPermissionProbeSequenceLoader([
+            .failure,
+            .timeout,
+            .success(try Self.decode(Self.readyJSON)),
+            .failure,
+        ])
+        let model = makeModel { try await loader.load($0) }
+        model.lastError = "unrelated-global-message"
+
+        await model.refreshPermissionProbe(force: true)
+        XCTAssertTrue(model.permissionProbeFailureMessage?.contains("本地服务未连接") == true)
+        XCTAssertEqual(model.lastError, "unrelated-global-message")
+        XCTAssertNil(model.permissionProbe)
+        XCTAssertEqual(model.permissionVerificationState, .unverified)
+
+        await model.refreshPermissionProbe(force: true)
+        XCTAssertTrue(model.permissionProbeFailureMessage?.contains("响应超时") == true)
+        XCTAssertEqual(model.lastError, "unrelated-global-message")
+
+        await model.refreshPermissionProbe(force: true)
+        XCTAssertNil(model.permissionProbeFailureMessage)
+        XCTAssertEqual(model.permissionVerificationState, .verifiedReady)
+        XCTAssertEqual(model.lastError, "unrelated-global-message")
+
+        await model.refreshPermissionProbe(force: true)
+        XCTAssertNotNil(model.permissionProbeFailureMessage)
+        model.profileRoot = "/fixture/other-profile"
+        XCTAssertNil(model.permissionProbeFailureMessage)
+        XCTAssertEqual(model.lastError, "unrelated-global-message")
     }
 
     @MainActor
@@ -113,7 +157,7 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
         }
         let startedAt = Date(timeIntervalSince1970: 2_500)
 
-        await model.refreshPermissionProbe(now: startedAt)
+        await model.refreshPermissionProbe(force: true, now: startedAt)
         XCTAssertEqual(model.permissionVerificationState, .verifiedReady)
 
         model.workspaceRoot = "/fixture/other-workspace"
@@ -121,7 +165,7 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
         XCTAssertNil(model.permissionProbe)
         XCTAssertNil(model.lastFullPermissionProbeAttemptAt)
 
-        await model.refreshPermissionProbe(now: startedAt.addingTimeInterval(1))
+        await model.refreshPermissionProbe(force: true, now: startedAt.addingTimeInterval(1))
         let requestCount = await loader.requestCount()
         XCTAssertEqual(requestCount, 2, "new authority scope must not inherit the old throttle")
         let secondQuery = await loader.query(at: 1)
@@ -213,8 +257,26 @@ final class HarvisPermissionProbeIsolationTests: XCTestCase {
     }
 
     @MainActor
+    func testDeniedExplicitCheckNeverRetriesInBackgroundAndStartWaitsForGuide() async throws {
+        let loader = HarvisPermissionProbeSequenceLoader([.success(try Self.decode(Self.blockedJSON))])
+        let model = makeModel { try await loader.load($0) }
+        model.start()
+        XCTAssertNil(model.timer); XCTAssertNil(model.startupTasks)
+        await model.refreshPermissionProbe(force: true, now: Date(timeIntervalSince1970: 100))
+        XCTAssertEqual(model.permissionVerificationState, .verifiedBlocked)
+        XCTAssertFalse(model.allowsAutomaticWorkspaceAccess)
+        for offset in [1.0, 301, 3_600, 86_400] {
+            await model.refreshPermissionProbe(now: Date(timeIntervalSince1970: 100 + offset))
+        }
+        let count = await loader.requestCount()
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(model.permissionVerificationState, .stale)
+        XCTAssertFalse(Self.fullDiskAccessStep(in: model).ok)
+    }
+
+    @MainActor
     private static func fullDiskAccessStep(in model: HarvisRuntimeModel) -> FirstRunStep {
-        model.firstRunSteps.first { $0.title == "Full Disk Access" }!
+        model.firstRunSteps.first { $0.title == "Workspace Access" }!
     }
 
     private static func decode(_ json: String) throws -> HarvisFullPermissionProbePayload {
@@ -284,6 +346,7 @@ private actor HarvisPermissionProbeSequenceLoader {
     enum Outcome: Sendable {
         case success(HarvisFullPermissionProbePayload)
         case failure
+        case timeout
     }
 
     private var outcomes: [Outcome]
@@ -301,6 +364,8 @@ private actor HarvisPermissionProbeSequenceLoader {
             return payload
         case .failure:
             throw URLError(.cannotConnectToHost)
+        case .timeout:
+            throw HarvisBarError.timeout("/permission-probe")
         }
     }
 

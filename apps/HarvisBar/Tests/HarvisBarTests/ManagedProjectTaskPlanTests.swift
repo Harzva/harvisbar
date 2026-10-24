@@ -334,6 +334,30 @@ final class ManagedProjectTaskPlanTests: XCTestCase {
         "ManagedProjectTaskPlanTests.\(name)"
     }
 
+    func testHistoricalBackgroundGatePrecedesProjectResolutionAndExplicitSingleProjectStillWorks() async throws {
+        let defaults = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let model = HarvisRuntimeModel(defaults: defaults)
+        let project = makeProject()
+        let path = "/fixture/permission-gated-history"
+        model.workBuddyThreads = [WorkBuddyThreadSummary(id: "fixture-history", title: "History", createdAt: 1,
+            updatedAt: 1, tokensUsed: 0, model: nil, cwd: path, archived: false, running: false, sourceStatus: "idle")]
+        var count = 0
+        let plan = makePlan(statuses: ["pending"])
+        model.projectTaskPlanAuthorityLoader = { _ in count += 1; return plan }
+        ManagedProjectPathCache.shared.removeAll()
+        await model.refreshManagedChatGovernance(threads: [], projects: [project])
+        await model.refreshProjectTaskPlan(project)
+        XCTAssertEqual(count, 0)
+        XCTAssertNil(ManagedProjectPathCache.shared.value(for: path), "Disabled background work must not even stat/canonicalize historical cwd")
+        await model.refreshProjectTaskPlan(project, force: true)
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(model.projectTaskPlan(for: project), plan)
+        model.accessPreferences.historicalProjectAccessEnabled = true
+        await model.refreshProjectTaskPlan(project, force: true)
+        XCTAssertEqual(count, 2)
+    }
+
     private func makeDefaults() -> UserDefaults {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)

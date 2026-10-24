@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Combine
 import SwiftUI
 
 enum CodexChatWorkbenchDefaults {
@@ -196,6 +197,7 @@ final class HarvisDesktopWindowController: NSObject, NSWindowDelegate {
     static let shared = HarvisDesktopWindowController()
 
     private var window: NSWindow?
+    private var displayNameSubscription: AnyCancellable?
 
     func show(model: HarvisRuntimeModel) {
         if window == nil {
@@ -208,7 +210,7 @@ final class HarvisDesktopWindowController: NSObject, NSWindowDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "H.A.R.V.I.S. Desktop"
+            window.title = Self.windowTitle(displayName: HarvisBarPreferences.shared.displayName)
             window.minSize = NSSize(width: 1040, height: 650)
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
@@ -218,6 +220,13 @@ final class HarvisDesktopWindowController: NSObject, NSWindowDelegate {
             self.window = window
         }
 
+        displayNameSubscription?.cancel()
+        displayNameSubscription = HarvisBarPreferences.shared.$displayName.sink { [weak self] name in
+            Task { @MainActor in
+                self?.window?.title = Self.windowTitle(displayName: name)
+            }
+        }
+
         window?.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
@@ -225,7 +234,12 @@ final class HarvisDesktopWindowController: NSObject, NSWindowDelegate {
     nonisolated func windowWillClose(_ notification: Notification) {
         Task { @MainActor in
             self.window = nil
+            self.displayNameSubscription = nil
         }
+    }
+
+    private static func windowTitle(displayName: String) -> String {
+        "\(displayName) · Desktop"
     }
 }
 
@@ -234,6 +248,7 @@ final class HarvisNetworkWindowController: NSObject, NSWindowDelegate {
     static let shared = HarvisNetworkWindowController()
 
     private var window: NSWindow?
+    private var displayNameSubscription: AnyCancellable?
 
     func show(model: HarvisRuntimeModel) {
         if window == nil {
@@ -245,7 +260,7 @@ final class HarvisNetworkWindowController: NSObject, NSWindowDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "H.A.R.V.I.S. Network"
+            window.title = Self.windowTitle(displayName: HarvisBarPreferences.shared.displayName)
             window.minSize = NSSize(width: 980, height: 640)
             window.titlebarAppearsTransparent = true
             window.isReleasedWhenClosed = false
@@ -255,6 +270,13 @@ final class HarvisNetworkWindowController: NSObject, NSWindowDelegate {
             self.window = window
         }
 
+        displayNameSubscription?.cancel()
+        displayNameSubscription = HarvisBarPreferences.shared.$displayName.sink { [weak self] name in
+            Task { @MainActor in
+                self?.window?.title = Self.windowTitle(displayName: name)
+            }
+        }
+
         window?.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
     }
@@ -262,7 +284,12 @@ final class HarvisNetworkWindowController: NSObject, NSWindowDelegate {
     nonisolated func windowWillClose(_ notification: Notification) {
         Task { @MainActor in
             self.window = nil
+            self.displayNameSubscription = nil
         }
+    }
+
+    private static func windowTitle(displayName: String) -> String {
+        "\(displayName) · Network"
     }
 }
 

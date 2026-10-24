@@ -1,54 +1,55 @@
-# H.A.R.V.I.S. Full Disk Access
+# HarvisBar permissions
 
-H.A.R.V.I.S. services run as local LaunchAgents. macOS may block protected or
-external-volume workspaces until the user grants Full Disk Access to the
-installed `HarvisBar.app` identity. The switch is only a user choice; the full
-permission probe is the authority for whether access actually works.
+Open **权限与个性化** from the gear button or Settings. The guide also opens
+before the first background refresh. You can continue with basic features and
+configure optional access later.
 
-## Current runtime identities
+## Choose what HarvisBar may read
 
-The installed system has four distinct roles:
+Workspace monitoring is disabled until you explicitly enable the displayed
+workspace and profile directories or complete a successful check. Choosing a
+folder alone changes the path. Consent is tied to both paths;
+changing a path requires a new choice. Other launchers’ Homes and historical
+project reads have separate switches, both initially off.
 
-- `HarvisBar.app` is the user-visible application and the only current
-  H.A.R.V.I.S. entry that should be rebound in Full Disk Access.
-- `HarvisBar.app/Contents/Resources/HarvisPlugin/bin/harvis` is the
-  receipt-bound deployment source bundled with that application.
-- `~/.harvis/bin/harvis` is the fixed resident helper. Both the HTTP and Tick
-  LaunchAgents must use this exact executable as `ProgramArguments[0]`.
-- `scripts/harvis` is an interactive command wrapper. It is not the resident
-  LaunchAgent or Full Disk Access authority.
+**验证并启用** performs a write check only when clicked. It checks the
+workspace, its state directory and the configured profile through the running
+local service. Success is evidence for those paths, not a test of Full Disk
+Access. A successful check enables background reads for those paths; you can
+turn this off at any time. A denied check disables reading until you choose
+to try again. Opening this guide and refreshing its system status do not run a
+write check.
 
-`HarvisRuntime.app` belongs to a legacy installation model. Do not select it as
-the current authority, add it to Full Disk Access, or delete an existing copy
-as part of this repair. Cargo target and repository build paths are also not
-valid resident identities.
+## Enable optional macOS permissions
 
-## Signing and identity continuity
+- Accessibility: needed to position or control another app’s windows.
+- Screen Recording: needed for screenshot-based recognition.
+- Full Disk Access: may be needed for protected locations used by a selected
+  workflow. macOS manages this permission; HarvisBar does not infer it by reading
+  unrelated private files.
+- Automation: macOS asks separately for each target app when a chosen action
+  sends Apple Events, such as opening a task in Terminal.
 
-A certificate-signed build with a stable designated requirement is preferred
-for distribution. A local ad-hoc candidate may be installed only after the
-user explicitly approves that local replacement. It must not be published,
-notarized, or represented as preserving identity continuity.
+Use the guide’s System Settings buttons. For Accessibility or Full Disk Access,
+drag the displayed app icon into the corresponding app list if it is absent,
+then enable the app yourself. **Show in Finder** locates the exact running app.
+If macOS asks you to restart HarvisBar, finish or preserve active work first.
+The personal Bar name changes the menu bar and window titles; System Settings
+continues to show the product name HarvisBar.
 
-For an ad-hoc candidate, `continuityClaim=false`: replacing the application can
-change the code identity even when its path is unchanged. After every such
-replacement, explicitly rebind the HarvisBar Full Disk Access entry and run the
-full permission probe again. Never infer success from the visible switch alone.
+Local services are distinct processes. A successful app-level grant is not
+proof that a separate helper can access a path. If the workspace check still
+fails, inspect the current service and its reported error before changing any
+other application’s permissions. Do not use a broad `tccutil reset`.
 
-## Scoped Full Disk Access rebind
+## Updates and signing
 
-1. From HarvisBar, open **Full Disk Access**. HarvisBar uses the macOS
-   `Privacy_AllFiles` settings route and its compatibility fallback.
-2. Change only the `HarvisBar` entry. Turn it off and back on, or remove and add
-   the installed `HarvisBar.app` again if macOS still retains a stale identity.
-3. Accept a HarvisBar restart if macOS requires it, then restart H.A.R.V.I.S.
-   services so both LaunchAgents execute the fixed helper.
-4. Run the full permission probe and require every protected-workspace check to
-   pass. Then confirm the local status APIs succeed before declaring recovery.
+Keep the installed app path, bundle identifier and signing identity stable.
+Ad-hoc builds can have different code identities after replacement; macOS may
+ask for access again. The guide cannot make grants permanent or replace code
+signing. A locally signed build is not necessarily Developer ID notarized.
+See `docs/local-stable-signing.md` in the source repository for the signing
+contract and its limits.
 
-Do not run a broad `tccutil reset`, reset the entire privacy service, or modify
-unrelated applications' Full Disk Access choices. A privacy change must happen
-only after the user explicitly confirms it at action time.
-
-Keep this permission narrow and reviewable. HarvisBar is a service-control and
-inspection surface; it does not bypass approvals.
+References: [Apple file access guidance](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox)
+and [Apple code signing guidance](https://developer.apple.com/library/archive/technotes/tn2206/).

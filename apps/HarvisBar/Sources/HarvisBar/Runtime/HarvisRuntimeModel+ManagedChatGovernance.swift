@@ -62,6 +62,7 @@ extension HarvisRuntimeModel {
         threads _: [ManagedChatThread],
         projects: [ManagedChatProjectIdentity]
     ) async {
+        guard accessPreferences.historicalProjectAccessEnabled else { return }
         // A view may pass a search-filtered card list. Governance must always
         // project the complete provider inventory so hidden conversations do
         // not silently fall out of the management snapshot or allowlist.
@@ -77,13 +78,14 @@ extension HarvisRuntimeModel {
         let completeProjects = projectsByID.values.sorted { $0.id < $1.id }
 
         for project in completeProjects.prefix(80) {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, accessPreferences.historicalProjectAccessEnabled else { return }
             await refreshProjectTaskPlan(project)
         }
         for thread in completeThreads.lazy.filter({ $0.isCodex }).prefix(100) {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, accessPreferences.historicalProjectAccessEnabled else { return }
             await refreshConversationMetrics(thread)
         }
+        guard accessPreferences.historicalProjectAccessEnabled else { return }
         await refreshConversationManagementSnapshots(
             additionalProjects: Array(completeProjects.prefix(80))
         )
@@ -93,6 +95,7 @@ extension HarvisRuntimeModel {
         _ project: ManagedChatProjectIdentity,
         force: Bool = false
     ) async {
+        guard force || accessPreferences.historicalProjectAccessEnabled else { return }
         if let inFlight = managedProjectTaskPlanRefreshTasks[project.id] {
             await inFlight.value
             return
@@ -108,6 +111,7 @@ extension HarvisRuntimeModel {
 
         let refresh = Task { @MainActor [weak self] in
             guard let self else { return }
+            guard force || self.accessPreferences.historicalProjectAccessEnabled else { return }
             await loadProjectTaskPlan(project, attemptedAt: now)
         }
         managedProjectTaskPlanRefreshTasks[project.id] = refresh
@@ -213,7 +217,7 @@ extension HarvisRuntimeModel {
     private func refreshConversationMetrics(
         _ thread: ManagedChatThread
     ) async {
-        guard thread.isCodex,
+        guard accessPreferences.historicalProjectAccessEnabled, thread.isCodex,
               let home = selectedCodexHome,
               thread.sourceScope == home.id else { return }
         let key = managedChatStorageKey(thread)

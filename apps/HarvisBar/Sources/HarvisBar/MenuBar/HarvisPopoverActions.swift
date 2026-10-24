@@ -24,7 +24,7 @@ enum HarvisGlobalAction: String, CaseIterable {
         case .ports: return "Open Harvis Ports"
         case .network: return "Open Harvis Network Console"
         case .logs: return "Show Harvis logs in Finder"
-        case .configuration: return "Open Harvis configuration"
+        case .configuration: return "Open permissions and personalization"
         case .quit: return "Quit HarvisBar"
         }
     }
@@ -101,14 +101,17 @@ extension HarvisPopoverView {
             .accessibilityIdentifier(HarvisGlobalAction.logs.accessibilityIdentifier)
             .harvisHoverNote("Logs：在 Finder 中打开 Harvis 日志", placement: .aboveTrailing)
             Button {
-                selectedSection = .system
+                HarvisPermissionsAndProfileWindowController.shared.show(
+                    model: model,
+                    preferences: preferences
+                )
             } label: {
-                Image(systemName: selectedSection == .system ? "gearshape.fill" : "gearshape")
+                Image(systemName: "gearshape")
             }
-            .help("打开 Harvis 配置")
+            .help("打开权限与个性化设置")
             .accessibilityLabel(HarvisGlobalAction.configuration.accessibilityLabel)
             .accessibilityIdentifier(HarvisGlobalAction.configuration.accessibilityIdentifier)
-            .harvisHoverNote("设置：切换到 Harvis 配置页面", placement: .aboveTrailing)
+            .harvisHoverNote("设置：权限与个人显示名称", placement: .aboveTrailing)
             Spacer()
         }
         .buttonStyle(.bordered)

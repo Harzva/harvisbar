@@ -19,7 +19,15 @@ enum HarvisAppMode {
     }
 
     static var isInteractionTest: Bool {
-        isLegacyInteractionTest || isVersionFixture || isPerformanceFixture || isGroupFixture
+        isLegacyInteractionTest || isVersionFixture || isPerformanceFixture || isGroupFixture || isPermissionFixture
+    }
+
+    static var isPermissionFixture: Bool {
+#if DEBUG
+        HarvisPermissionUIFixture.isRequested(arguments: ProcessInfo.processInfo.arguments)
+#else
+        false
+#endif
     }
 
     static var isGroupFixture: Bool {
@@ -91,9 +99,20 @@ enum HarvisSingleInstance {
 struct HarvisBarApp: App {
     @NSApplicationDelegateAdaptor(HarvisBarReopenDelegate.self) private var appDelegate
     @StateObject private var model: HarvisRuntimeModel
+    @StateObject private var preferences: HarvisBarPreferences
 
     init() {
         let arguments = ProcessInfo.processInfo.arguments
+#if DEBUG
+        let permissionFixture: HarvisPermissionUIFixture.Context?
+        do {
+            permissionFixture = HarvisAppMode.isPermissionFixture
+                ? try HarvisPermissionUIFixture.makeContext(arguments: arguments) : nil
+        } catch {
+            FileHandle.standardError.write(Data("Harvis permission fixture boot rejected.\n".utf8))
+            Darwin.exit(EXIT_FAILURE)
+        }
+#endif
         let isLegacyUITestMode = HarvisAppMode.isLegacyInteractionTest
 #if HARVIS_VERSION_UI_TESTING
         let versionFixtureProvider: HarvisVersionFixtureProvider?
@@ -166,6 +185,12 @@ struct HarvisBarApp: App {
                 forName: "local.harzva.harvisbar.interaction-test"
             )
             runtimeModel = HarvisRuntimeModel(defaults: isolatedDefaults)
+        } else if HarvisAppMode.isPermissionFixture {
+#if DEBUG
+            runtimeModel = permissionFixture!.runtime
+#else
+            runtimeModel = HarvisRuntimeModel()
+#endif
         } else if HarvisAppMode.isGroupFixture {
 #if DEBUG
             do {
@@ -187,6 +212,13 @@ struct HarvisBarApp: App {
             runtimeModel = HarvisRuntimeModel()
         }
         _model = StateObject(wrappedValue: runtimeModel)
+        let personalPreferences: HarvisBarPreferences
+#if DEBUG
+        personalPreferences = permissionFixture?.preferences ?? .shared
+#else
+        personalPreferences = .shared
+#endif
+        _preferences = StateObject(wrappedValue: personalPreferences)
         HarvisBarReopenDelegate.runtimeModel = runtimeModel
         NSApplication.shared.setActivationPolicy(
             HarvisAppMode.isDesktopBundle || isUITestMode ? .regular : .accessory
@@ -194,6 +226,15 @@ struct HarvisBarApp: App {
 
         DispatchQueue.main.async {
 #if DEBUG
+            if let permissionFixture {
+                HarvisPermissionsAndProfileWindowController.shared.show(
+                    model: runtimeModel,
+                    preferences: personalPreferences,
+                    permissionCenter: permissionFixture.permissionCenter,
+                    isFirstLaunch: !runtimeModel.accessPreferences.hasSeenPermissionGuide
+                )
+                return
+            }
             if HarvisAppMode.isGroupFixture {
                 runtimeModel.openCodexGroupChat()
                 return
@@ -222,6 +263,16 @@ struct HarvisBarApp: App {
                 return
             }
 #endif
+            if bootRoute.startsRuntime,
+               !runtimeModel.accessPreferences.hasSeenPermissionGuide
+                    || arguments.contains("--open-harvis-permissions") {
+                HarvisPermissionsAndProfileWindowController.shared.show(
+                    model: runtimeModel,
+                    preferences: personalPreferences,
+                    isFirstLaunch: !runtimeModel.accessPreferences.hasSeenPermissionGuide
+                )
+                if !runtimeModel.accessPreferences.hasSeenPermissionGuide { return }
+            }
             if bootRoute.performsLegacyRefresh {
                 Task { await runtimeModel.refreshAll() }
             } else if bootRoute.startsRuntime {
@@ -253,11 +304,15 @@ struct HarvisBarApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            HarvisPopoverView()
+            HarvisPopoverView(
+                preferences: preferences,
+                allowsBackgroundRefresh: model.accessPreferences.hasSeenPermissionGuide
+                    && !HarvisAppMode.isInteractionTest
+            )
                 .environmentObject(model)
                 .frame(width: 318, height: 620)
         } label: {
-            HarvisStatusLabel()
+            HarvisStatusLabel(preferences: preferences)
                 .environmentObject(model)
                 .onAppear {
                     if !HarvisAppMode.isInteractionTest {
@@ -271,6 +326,15 @@ struct HarvisBarApp: App {
             EmptyView()
         }
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("权限与个性化…") {
+                    HarvisPermissionsAndProfileWindowController.shared.show(
+                        model: model, preferences: preferences,
+                        isFirstLaunch: !model.accessPreferences.hasSeenPermissionGuide
+                    )
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
             CommandMenu("Codex") {
                 Button("成员群聊") { model.openCodexGroupChat() }
                     .keyboardShortcut("g", modifiers: [.command, .shift])
@@ -322,6 +386,10 @@ final class HarvisBarReopenDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         guard !flag, !HarvisAppMode.isInteractionTest,
               !HarvisAppMode.isDesktopBundle, let model = Self.runtimeModel else { return true }
+        if !model.accessPreferences.hasSeenPermissionGuide {
+            HarvisPermissionsAndProfileWindowController.shared.show(model: model, isFirstLaunch: true)
+            return true
+        }
         HarvisDshQuickWindowController.shared.show(model: model)
         return true
     }

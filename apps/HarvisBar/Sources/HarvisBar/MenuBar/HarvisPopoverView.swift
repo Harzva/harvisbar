@@ -4,21 +4,26 @@ import SwiftUI
 
 struct HarvisStatusLabel: View {
     @EnvironmentObject var model: HarvisRuntimeModel
+    @ObservedObject var preferences: HarvisBarPreferences = .shared
 
     var body: some View {
         HStack(spacing: 5) {
             Circle()
                 .fill(model.tintColor)
                 .frame(width: 8, height: 8)
-            Text("H.A.R.V.I.S.")
+            Text(preferences.displayName)
                 .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 120, alignment: .leading)
+                .help(preferences.displayName)
             if let pending = model.barStatus?.work?.pendingApprovals, pending > 0 {
                 Text("\(pending)")
                     .font(.system(size: 10, weight: .bold))
                     .monospacedDigit()
             }
         }
-        .help(model.shortSummary)
+        .help("\(preferences.displayName) · \(model.shortSummary)")
     }
 }
 
@@ -84,6 +89,7 @@ enum HarvisBarSection: String, CaseIterable, Identifiable {
 
 struct HarvisPopoverView: View {
     @EnvironmentObject var model: HarvisRuntimeModel
+    @ObservedObject var preferences: HarvisBarPreferences = .shared
     @State var selectedSection: HarvisBarSection = .overview
     @State var quickCredentialKey = ""
     @State var quickCredentialValue = ""

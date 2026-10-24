@@ -270,6 +270,12 @@ final class CodexPersistenceTests: XCTestCase {
 
         model.codexHomes = [managedDuplicate, apiOnly, proxyEmail, defaultHome]
 
+        XCTAssertEqual(model.visibleCodexHomes.map(\.id), [defaultHome.id])
+        XCTAssertFalse(model.visibleCodexHomes.contains { $0.id == apiOnly.id })
+        XCTAssertFalse(model.visibleCodexHomes.contains { $0.id == proxyEmail.id })
+
+        model.accessPreferences.externalHomeDiscoveryEnabled = true
+
         XCTAssertEqual(
             Set(model.visibleCodexHomes.map(\.id)),
             Set([defaultHome.id, apiOnly.id, proxyEmail.id])
@@ -451,6 +457,24 @@ final class CodexPersistenceTests: XCTestCase {
         )
 
         XCTAssertNotEqual(before, after)
+    }
+
+    func testExternalLauncherFingerprintIsOptInAndLegacyAdditionalPathsCannotBypassIt() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("harvis-external-scope-\(UUID().uuidString)")
+        let home = root.appendingPathComponent("Library/Application Support/open-codex-launcher/profile-homes/account")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let before = HarvisRuntimeModel.codexHomeDiscoveryFingerprint(userRootPath: root.path, additionalHomePaths: [home.path])
+        let enabledBefore = HarvisRuntimeModel.codexHomeDiscoveryFingerprint(userRootPath: root.path, includeExternalLaunchers: true)
+        try Data("fixture".utf8).write(to: home.appendingPathComponent("config.toml"))
+        XCTAssertEqual(before, HarvisRuntimeModel.codexHomeDiscoveryFingerprint(userRootPath: root.path, additionalHomePaths: [home.path]))
+        XCTAssertNotEqual(enabledBefore, HarvisRuntimeModel.codexHomeDiscoveryFingerprint(userRootPath: root.path, includeExternalLaunchers: true))
+        XCTAssertNotEqual(before, enabledBefore, "Toggling discovery scope itself must trigger refresh")
+        XCTAssertFalse(HarvisRuntimeModel.permitsCodexHomeDiscoveryPath(home.path, includeExternalLaunchers: false, userRootPath: root.path))
+        XCTAssertFalse(HarvisRuntimeModel.permitsCodexHomeDiscoveryPath("/fixture/old-canonical-home", source: "open-codex-launcher", includeExternalLaunchers: false, userRootPath: root.path))
+        XCTAssertTrue(HarvisRuntimeModel.permitsCodexHomeDiscoveryPath(home.path, includeExternalLaunchers: false, userRootPath: root.path, explicitHomePaths: [home.path]))
+        XCTAssertEqual(HarvisRuntimeModel.codexHomeDiscoveryArguments(includeExternalLaunchers: false), ["codex", "homes"])
+        XCTAssertEqual(HarvisRuntimeModel.codexHomeDiscoveryArguments(includeExternalLaunchers: true), ["codex", "homes", "--include-external-launchers"])
     }
 
     private func fixtureHome(

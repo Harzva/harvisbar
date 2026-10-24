@@ -31,15 +31,21 @@ extension HarvisRuntimeModel {
         isCodexHomeRefreshing = true
         defer { isCodexHomeRefreshing = false }
         do {
-            let output = try await runProcess(serviceManagerPath, ["codex", "homes"])
+            let includeExternal = accessPreferences.externalHomeDiscoveryEnabled
+            let output = try await runProcess(serviceManagerPath,
+                Self.codexHomeDiscoveryArguments(includeExternalLaunchers: includeExternal))
             let result = try JSONDecoder().decode(CodexHomeList.self, from: Data(output.utf8))
             guard result.ok else {
                 throw HarvisBarError.api("CODEX_HOME discovery failed")
             }
-            codexHomes = result.items
+            // A preference change while the helper was running invalidates that scope.
+            guard includeExternal == accessPreferences.externalHomeDiscoveryEnabled else { return }
+            let permitted = result.items.filter(permitsDiscoveredCodexHome)
+            codexHomes = permitted
             codexHomeWarnings = result.warnings
             lastCodexHomeDiscoveryFingerprint = Self.codexHomeDiscoveryFingerprint(
-                additionalHomePaths: result.items.map(\.path)
+                additionalHomePaths: permitted.map(\.path),
+                includeExternalLaunchers: includeExternal, explicitHomePaths: Self.explicitCodexHomePaths
             )
             let visibleItems = visibleCodexHomes
             if !visibleItems.contains(where: { $0.id == selectedCodexHomeID }) {
@@ -80,7 +86,9 @@ extension HarvisRuntimeModel {
     func refreshCodexHomesIfFilesystemChanged() async {
         guard !isCodexHomeRefreshing else { return }
         let fingerprint = Self.codexHomeDiscoveryFingerprint(
-            additionalHomePaths: codexHomes.map(\.path)
+            additionalHomePaths: codexHomes.filter(permitsDiscoveredCodexHome).map(\.path),
+            includeExternalLaunchers: accessPreferences.externalHomeDiscoveryEnabled,
+            explicitHomePaths: Self.explicitCodexHomePaths
         )
         guard fingerprint != lastCodexHomeDiscoveryFingerprint else { return }
         await refreshCodexHomes()
@@ -114,6 +122,8 @@ extension HarvisRuntimeModel {
         async let workBuddyThreads: Void = refreshWorkBuddyThreads()
         _ = await (codexHomes, dshThreads, workBuddyThreads)
 
+        // This gate must precede project resolution: the resolver stats/canonicalizes cwd.
+        guard accessPreferences.historicalProjectAccessEnabled else { return }
         let completeThreads = managedChatThreads
         let projects = Dictionary(
             grouping: completeThreads,
