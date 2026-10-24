@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod group_chat;
 pub mod routes;
 pub mod static_assets;
 

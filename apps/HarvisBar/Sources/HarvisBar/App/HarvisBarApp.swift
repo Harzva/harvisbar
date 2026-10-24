@@ -293,6 +293,10 @@ final class HarvisBarReopenDelegate: NSObject, NSApplicationDelegate {
     static weak var runtimeModel: HarvisRuntimeModel?
     private var terminationTask: Task<Void, Never>?
 
+    func applicationWillTerminate(_ notification: Notification) {
+        Self.runtimeModel?.stopGroupControlService()
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let composer = Self.runtimeModel?.groupComposerState,
               composer.hasUnsavedChanges else { return .terminateNow }

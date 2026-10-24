@@ -2,6 +2,7 @@ import Combine
 import Foundation
 
 enum HarvisGroupRecipientMode: Codable, Equatable, Sendable {
+    case coordinated
     case allMembers
     case selected(Set<UUID>)
     case recordOnly

@@ -6,13 +6,14 @@ import XCTest
 final class HarvisGroupComposerStateTests: XCTestCase {
     func testRestartRestoresEachDraftRecipientModeAndSelectionButResetsWritePermission() async throws {
         let url = try fixtureURL(); defer { removeFixture(url) }
-        let first = UUID(), second = UUID(), third = UUID(), member = UUID()
+        let first = UUID(), second = UUID(), third = UUID(), coordinated = UUID(), member = UUID()
         let state = makeState(url)
         await state.activate()
         state.selectGroup(second)
         state.updateDraft(groupID: first, text: "未发送草稿", recipientMode: .recordOnly, permission: .workspaceWrite)
         state.updateDraft(groupID: second, text: "review", recipientMode: .selected([member]), permission: .discussion)
         state.updateDraft(groupID: third, text: "broadcast", recipientMode: .allMembers, permission: .discussion)
+        state.updateDraft(groupID: coordinated, text: "交给群主协调", recipientMode: .coordinated, permission: .discussion)
         let saved = await state.flush()
         XCTAssertTrue(saved)
         XCTAssertFalse(state.hasUnsavedChanges)
@@ -24,6 +25,8 @@ final class HarvisGroupComposerStateTests: XCTestCase {
         XCTAssertEqual(restored.draft(for: first), .init(text: "未发送草稿", recipientMode: .recordOnly, permission: .discussion))
         XCTAssertEqual(restored.draft(for: second).recipientMode, .selected([member]))
         XCTAssertEqual(restored.draft(for: third).recipientMode, .allMembers)
+        XCTAssertEqual(restored.draft(for: coordinated).recipientMode, .coordinated)
+        XCTAssertEqual(restored.draft(for: coordinated).text, "交给群主协调")
         XCTAssertFalse(restored.hasUnsavedChanges)
         let permissions = try FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber
         XCTAssertEqual(permissions?.intValue, 0o600)

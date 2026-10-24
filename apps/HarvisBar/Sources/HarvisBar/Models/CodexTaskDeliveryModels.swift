@@ -89,6 +89,9 @@ struct CodexTaskCommand: Codable, Equatable, Identifiable, Sendable {
     let text: String
     let strategy: CodexTaskStrategy
     let batch: CodexTaskBatchPosition?
+    /// Native structured output applies to this command only. Keeping it in
+    /// the durable command makes queued owner decisions survive a restart.
+    let outputSchema: CodexJSONValue?
     let createdAt: Date
 
     init(
@@ -101,6 +104,7 @@ struct CodexTaskCommand: Codable, Equatable, Identifiable, Sendable {
         text: String,
         strategy: CodexTaskStrategy = .smart,
         batch: CodexTaskBatchPosition? = nil,
+        outputSchema: CodexJSONValue? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -112,6 +116,7 @@ struct CodexTaskCommand: Codable, Equatable, Identifiable, Sendable {
         self.text = text
         self.strategy = strategy
         self.batch = batch
+        self.outputSchema = outputSchema
         self.createdAt = createdAt
     }
 }

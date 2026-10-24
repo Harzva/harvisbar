@@ -4,6 +4,64 @@ import XCTest
 
 @MainActor
 final class CodexTaskDeliveryCoordinatorTests: XCTestCase {
+    func testStructuredFreshTurnSurvivesQueueRestoreWithoutLeakingSchemaToNextTurn() async throws {
+        let fixture = try makeFixture(probeValues: [true])
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        await fixture.coordinator.activate(probeExecutablePath: "/bin/false")
+        let schema: CodexJSONValue = .object([
+            "type": .string("object"),
+            "properties": .object(["decision": .object(["type": .string("string")])]),
+            "required": .array([.string("decision")]),
+            "additionalProperties": .bool(false),
+        ])
+        let commandID = UUID()
+        let accepted = await fixture.coordinator.submitFreshTurn(
+            commandID: commandID, homeID: "home-a", homePath: fixture.home.path,
+            sourceThreadID: "owner-thread", targetThreadID: "owner-thread", cardType: .main,
+            text: "plan with a native schema", outputSchema: schema
+        )
+        XCTAssertEqual(accepted, commandID)
+        XCTAssertEqual(fixture.coordinator.durableQueueItems.first?.command.outputSchema, schema)
+        await fixture.coordinator.deactivate()
+        XCTAssertFalse(try loggedRPCMessages(in: fixture.root).contains {
+            $0["method"]?.stringValue == "turn/start"
+        })
+
+        let restored = CodexTaskDeliveryCoordinator(
+            store: CodexTaskQueueStore(queueURL: fixture.root.appendingPathComponent("queue/queue-v1.json")),
+            pool: fixture.pool, activityProbe: ScriptedCodexActivityProbe([false]),
+            monitorIntervalNanoseconds: 20_000_000
+        )
+        await restored.activate(probeExecutablePath: "/bin/false")
+        let started = await eventually { restored.durableQueueItems.first?.state == .running }
+        XCTAssertTrue(started)
+        let start = try XCTUnwrap(loggedRPCMessages(in: fixture.root).first {
+            $0["method"]?.stringValue == "turn/start"
+        })
+        XCTAssertEqual(start["params"]?["outputSchema"], schema)
+        XCTAssertEqual(start["params"]?["clientUserMessageId"]?.stringValue, commandID.uuidString)
+        let connection = await fixture.pool.connection(for: fixture.home.path)
+        _ = try await connection.request(method: "test/emitCompletion", params: .object([
+            "threadId": .string("owner-thread"), "message": .string("{\"decision\":\"complete\"}"),
+        ]))
+        let completed = await eventually { restored.durableQueueItems.first?.state == .completed }
+        XCTAssertTrue(completed)
+
+        let nextID = UUID()
+        _ = await restored.submitFreshTurn(
+            commandID: nextID, homeID: "home-a", homePath: fixture.home.path,
+            sourceThreadID: "owner-thread", targetThreadID: "owner-thread", cardType: .main,
+            text: "ordinary follow-up"
+        )
+        let nextStarted = await eventually { restored.durableQueueItems.last?.state == .running }
+        XCTAssertTrue(nextStarted)
+        let starts = try loggedRPCMessages(in: fixture.root).filter { $0["method"]?.stringValue == "turn/start" }
+        XCTAssertEqual(starts.count, 2)
+        XCTAssertNil(starts.last?["params"]?["outputSchema"])
+        XCTAssertEqual(starts.last?["params"]?["clientUserMessageId"]?.stringValue, nextID.uuidString)
+        await restored.deactivate()
+    }
+
     func testDurableQueueProjectionDoesNotPublishRejectedTerminalSave() async throws {
         let store = StateBlockingCodexTaskQueueStore()
         await store.setBlockedState(.cancelled)

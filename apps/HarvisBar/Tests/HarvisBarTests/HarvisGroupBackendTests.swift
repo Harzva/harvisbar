@@ -189,6 +189,7 @@ final class HarvisGroupBackendTests: XCTestCase {
     func testNativeForkAndPermissionChangePreserveOriginalBinding() async throws {
         let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
         let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        _ = await fixture.group.setProjectPermission(groupID: groupID, permission: .workspaceWrite)
         let memberID = try await unwrap(fixture.group.addMember(groupID: groupID, name: "A", role: "review", homePath: fixture.root.path))
         await fixture.group.send(groupID: groupID, text: "@A discuss")
         let started = await eventually { fixture.delivery.durableQueueItems.first?.state == .running }
@@ -209,7 +210,7 @@ final class HarvisGroupBackendTests: XCTestCase {
         await fixture.group.send(groupID: groupID, text: "@A implement explicitly", permission: .workspaceWrite)
         let writable = try XCTUnwrap(fixture.group.group(groupID)?.members[0].binding)
         XCTAssertEqual(writable.permission, .workspaceWrite)
-        XCTAssertNotEqual(writable.threadID, fork.threadID)
+        XCTAssertEqual(writable.threadID, fork.threadID)
         XCTAssertTrue(fixture.group.group(groupID)?.members[0].previousBindings.contains(original) == true)
         fixture.group.deactivate(); await fixture.delivery.deactivate()
     }
@@ -346,34 +347,25 @@ final class HarvisGroupBackendTests: XCTestCase {
         restored.deactivate(); await delivery.deactivate(); await fixture.delivery.deactivate()
     }
 
-    func testSharedProjectAllowsOneWriterAndConcurrentReadOnlyReviewer() async throws {
+    func testSharedProjectAcceptsMultipleWritersButSerializesTheirOutbox() async throws {
         let fixture = try await makeFixture(); defer { cleanFixture(fixture.root) }
         fixture.delivery.setActivityProbeForTesting(ScriptedCodexActivityProbe([true]))
         let groupID = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
-        let a = try await unwrap(fixture.group.addMember(groupID: groupID, name: "A", role: "writer", homePath: fixture.root.path))
-        let b = try await unwrap(fixture.group.addMember(groupID: groupID, name: "B", role: "review", homePath: fixture.root.path))
-        let multiple = await fixture.group.send(groupID: groupID, text: "@A @B write", permission: .workspaceWrite)
-        XCTAssertFalse(multiple)
-        XCTAssertTrue(fixture.group.group(groupID)?.messages.isEmpty == true)
-        let first = await fixture.group.send(groupID: groupID, text: "@A write", permission: .workspaceWrite)
-        XCTAssertTrue(first)
-        let competing = await fixture.group.send(groupID: groupID, text: "@B also write", permission: .workspaceWrite)
-        XCTAssertFalse(competing)
-        XCTAssertEqual(fixture.group.group(groupID)?.dispatches.count, 1)
-        XCTAssertEqual(fixture.group.group(groupID)?.dispatches.first?.memberID, a)
-        let review = await fixture.group.send(groupID: groupID, text: "@B read and review")
-        XCTAssertTrue(review)
+        _ = await fixture.group.setProjectPermission(groupID: groupID, permission: .workspaceWrite)
+        _ = await fixture.group.addMember(groupID: groupID, name: "A", role: "write", homePath: fixture.root.path)
+        _ = await fixture.group.addMember(groupID: groupID, name: "B", role: "write", homePath: fixture.root.path)
+        let accepted = await fixture.group.send(groupID: groupID, text: "@A @B work", permission: .workspaceWrite)
+        XCTAssertTrue(accepted)
         XCTAssertEqual(fixture.group.group(groupID)?.dispatches.count, 2)
-        XCTAssertEqual(fixture.group.group(groupID)?.members.first { $0.id == b }?.binding?.permission, .discussion)
-        XCTAssertEqual(fixture.delivery.durableQueueItems.count, 2)
-        let otherGroupID = try await unwrap(fixture.group.createGroup(title: "Same cwd", projectPath: fixture.root.path))
-        _ = await fixture.group.addMember(groupID: otherGroupID, name: "C", role: "other group", homePath: fixture.root.path)
-        let crossGroupWriter = await fixture.group.send(groupID: otherGroupID, text: "@C write same cwd", permission: .workspaceWrite)
-        XCTAssertFalse(crossGroupWriter)
-        XCTAssertTrue(fixture.group.group(otherGroupID)?.messages.isEmpty == true)
-        let crossGroupReview = await fixture.group.send(groupID: otherGroupID, text: "@C read same cwd")
-        XCTAssertTrue(crossGroupReview)
-        XCTAssertEqual(fixture.delivery.durableQueueItems.count, 3)
+        XCTAssertEqual(fixture.delivery.durableQueueItems.count, 1)
+        XCTAssertEqual(fixture.group.group(groupID)?.runs.first?.steps.filter { $0.state == .planned }.count, 1)
+        let other = try await unwrap(fixture.group.createGroup(projectPath: fixture.root.path))
+        _ = await fixture.group.setProjectPermission(groupID: other, permission: .workspaceWrite)
+        let c = try await unwrap(fixture.group.addMember(groupID: other, name: "C", role: "write", homePath: fixture.root.path))
+        let waiting = try await fixture.group.submitDirect(groupID: other, text: "same project", memberIDs: [c], permission: .workspaceWrite)
+        XCTAssertNotNil(waiting.runID)
+        await fixture.group.advanceOrchestration()
+        XCTAssertEqual(fixture.delivery.durableQueueItems.count, 1)
         fixture.group.deactivate(); await fixture.delivery.deactivate()
     }
 
@@ -644,62 +636,7 @@ final class HarvisGroupBackendTests: XCTestCase {
         return root
     }
     private func makeFixture() async throws -> (root: URL, group: HarvisGroupCoordinator, delivery: CodexTaskDeliveryCoordinator) {
-        let root = try makeRoot()
-        let executable = try CodexAppServerTestSupport.makeFakeExecutable(in: root)
-        var script = try String(contentsOf: executable, encoding: .utf8)
-        script = script.replacingOccurrences(of: "        elif method == \"thread/start\":", with: """
-                elif method == "test/setIdentity":
-                    test_identity = params["value"]
-                    send({"id":request_id,"result":{}})
-                elif method == "test/setHistoryFailure":
-                    fail_history = True
-                    send({"id":request_id,"result":{}})
-                elif method == "test/historyCounters":
-                    send({"id":request_id,"result":{"count":history_count}})
-                elif method == "turn/interrupt":
-                    thread_id = params["threadId"]
-                    turn_id = params["turnId"]
-                    turn = {"id":turn_id,"status":"interrupted","items":[]}
-                    upsert_turn(thread_id, turn)
-                    active_turns.pop(thread_id, None)
-                    send({"method":"turn/completed","params":{"threadId":thread_id,"turn":turn}})
-                    send({"id":request_id,"result":{}})
-                elif method == "model/list":
-                    send({"id":request_id,"result":{"data":[{"model":"gpt-test","isDefault":True,"hidden":False,"defaultReasoningEffort":"medium","supportedReasoningEfforts":[{"reasoningEffort":"medium"}]}],"nextCursor":None}})
-                elif method == "test/blockIdentityAt":
-                    identity_gate_at = params["count"]
-                    send({"id":request_id,"result":{}})
-                elif method == "account/read":
-                    identity_reads += 1
-                    if identity_reads == identity_gate_at:
-                        open(os.path.join(SCRIPT_DIRECTORY, "identity-blocked"), "w").close()
-                        while not os.path.exists(os.path.join(SCRIPT_DIRECTORY, "identity-release")):
-                            time.sleep(0.01)
-                    account = None if os.environ.get("CODEX_HOME", "").endswith("bad-home") else {"type":"chatgpt","email":os.environ.get("CODEX_HOME", "test") + "@example.invalid","planType":"plus"}
-                    send({"id":request_id,"result":{"account":account,"requiresOpenaiAuth":True}})
-                elif method == "account/rateLimits/read":
-                    send({"id":request_id,"result":{"accountId":test_identity or os.environ.get("CODEX_HOME", "test")}})
-                elif method == "thread/start" or method == "thread/fork":
-        """)
-        script = script.replacingOccurrences(of: "        elif method == \"thread/turns/list\":", with: "        elif method == \"thread/turns/list\":\n            history_count += 1\n            if fail_history:\n                send({\"id\":request_id,\"error\":{\"code\":-32000,\"message\":\"history unavailable\"}})\n                continue")
-        script = script.replacingOccurrences(of: "        elif method == \"thread/read\":\n            thread_id = params[\"threadId\"]", with: "        elif method == \"thread/read\":\n            thread_id = params[\"threadId\"]\n            if thread_id not in thread_versions:\n                send({\"id\":request_id,\"error\":{\"code\":-32600,\"message\":\"thread not loaded: \" + thread_id}})\n                continue")
-        script = script.replacingOccurrences(of: "thread_id = \"thread-handoff-\" + str(thread_counter)", with: "thread_id = \"thread-handoff-\" + str(os.getpid()) + \"-\" + str(thread_counter)")
-        script = script.replacingOccurrences(of: "thread_counter = 0", with: "thread_counter = 0\nthread_sandboxes = {}\ntest_identity = None\nfail_history = False\nhistory_count = 0\nidentity_reads = 0\nidentity_gate_at = -1")
-        script = script.replacingOccurrences(of: "        elif method == \"thread/resume\":", with: "        elif method == \"thread/resume\":\n            params[\"sandbox\"] = thread_sandboxes.get(params[\"threadId\"], \"read-only\")\n            if not thread_turns.get(params[\"threadId\"]):\n                send({\"id\":request_id,\"error\":{\"code\":-32600,\"message\":\"no rollout found for thread id\"}})\n                continue")
-        script = script.replacingOccurrences(of: "            thread_versions[thread_id] = 1", with: "            thread_sandboxes[thread_id] = params.get(\"sandbox\", \"read-only\")\n            thread_versions[thread_id] = 1")
-        script = script.replacingOccurrences(of: "\"sandbox\":{\"type\":\"dangerFullAccess\"}", with: "\"sandbox\":{\"type\":\"workspaceWrite\" if params.get(\"sandbox\") == \"workspace-write\" else \"readOnly\"}")
-        script = script.replacingOccurrences(of: "\"approvalPolicy\":\"on-request\",", with: "\"approvalPolicy\":(\"on-request\" if params.get(\"sandbox\") == \"workspace-write\" else \"never\"),")
-        try script.write(to: executable, atomically: true, encoding: .utf8)
-        // Match production RPC timing: fixture scripts and durable journals may live
-        // on slow external storage. Timeout-specific tests must opt into a short bound.
-        let pool = CodexAppServerPool(executableURL: executable, requestTimeout: 30)
-        let delivery = CodexTaskDeliveryCoordinator(store: CodexTaskQueueStore(queueURL: root.appendingPathComponent("queue.json")), pool: pool,
-            handoffStore: CodexConversationHandoffStore(storeURL: root.appendingPathComponent("handoffs.json")),
-            activityProbe: ScriptedCodexActivityProbe([false]), monitorIntervalNanoseconds: 20_000_000)
-        await delivery.activate(probeExecutablePath: "/bin/false")
-        let group = HarvisGroupCoordinator(delivery: delivery, store: HarvisGroupStore(url: root.appendingPathComponent("groups.json")))
-        await group.activate()
-        return (root, group, delivery)
+        try await HarvisGroupOrchestrationTestSupport.make()
     }
     private func eventually(_ predicate: @MainActor () -> Bool) async -> Bool {
         for _ in 0 ..< 150 {

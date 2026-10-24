@@ -40,6 +40,7 @@ struct HarvisGroupMessage: Codable, Equatable, Identifiable, Sendable {
     var recipientMemberIDs: [UUID] = []
     var dispatchID: UUID?
     var source: HarvisGroupBinding?
+    var origin: HarvisGroupMessageOrigin? = nil
 }
 
 struct HarvisGroupDispatch: Codable, Equatable, Identifiable, Sendable {
@@ -66,6 +67,12 @@ struct HarvisGroupConversation: Codable, Equatable, Identifiable, Sendable {
     var messages: [HarvisGroupMessage] = []
     var dispatches: [HarvisGroupDispatch] = []
     var lastSequence: Int = 0
+    var orchestration: HarvisGroupOrchestrationConfiguration? = nil
+    var ownerMemberID: UUID? { orchestration?.ownerMemberID }
+    var projectPermission: HarvisGroupPermission { orchestration?.projectPermission ?? .discussion }
+    var backgroundEnabled: Bool { orchestration?.backgroundEnabled ?? false }
+    var runs: [HarvisGroupRun] { orchestration?.runs ?? [] }
+    var memory: HarvisGroupMemory { orchestration?.memory ?? .init() }
 }
 
 enum HarvisGroupError: LocalizedError {

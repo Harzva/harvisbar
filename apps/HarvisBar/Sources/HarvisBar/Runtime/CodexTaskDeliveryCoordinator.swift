@@ -175,7 +175,8 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
         sourceThreadID: String,
         targetThreadID: String,
         cardType: CodexTaskCardType,
-        text: String
+        text: String,
+        outputSchema: CodexJSONValue? = nil
     ) async -> UUID? {
         guard requireReadyForSubmission() else { return nil }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -192,7 +193,8 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
             sourceThreadID: sourceThreadID,
             cardType: cardType,
             text: trimmed,
-            strategy: .freshTurn
+            strategy: .freshTurn,
+            outputSchema: outputSchema
         )
         queueItems.append(CodexTaskQueueItem(
             command: command,
@@ -611,19 +613,23 @@ final class CodexTaskDeliveryCoordinator: ObservableObject {
             ) else { return }
             try submissionFence?(item.command)
             turnRequestStarted = true
+            var turnParameters: [String: CodexJSONValue] = [
+                "threadId": .string(item.command.threadID),
+                "input": .array([
+                    .object([
+                        "type": .string("text"),
+                        "text": .string(item.command.text),
+                    ]),
+                ]),
+                "clientUserMessageId": .string(item.command.id.uuidString),
+                "approvalsReviewer": .string("user"),
+            ]
+            if let outputSchema = item.command.outputSchema {
+                turnParameters["outputSchema"] = outputSchema
+            }
             let result = try await connection.request(
                 method: "turn/start",
-                params: .object([
-                    "threadId": .string(item.command.threadID),
-                    "input": .array([
-                        .object([
-                            "type": .string("text"),
-                            "text": .string(item.command.text),
-                        ]),
-                    ]),
-                    "clientUserMessageId": .string(item.command.id.uuidString),
-                    "approvalsReviewer": .string("user"),
-                ])
+                params: .object(turnParameters)
             )
             guard await connection.connectionID() == connectionID else {
                 throw CodexAppServerError.deliveryUncertain(

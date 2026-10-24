@@ -114,6 +114,7 @@ impl HttpApiError {
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .merge(crate::group_chat::router())
         .route("/health", get(health))
         .route("/ui/bootstrap", get(ui_bootstrap))
         .route("/ui/tokens.css", get(static_assets::ui_tokens_css))

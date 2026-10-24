@@ -88,10 +88,11 @@ struct CodexGroupAdapter: Sendable {
     func prepare(_ binding: HarvisGroupBinding, projectPath: String, connection: CodexAppServerConnection) async throws -> CodexJSONValue {
         let generation = try await connection.connect()
         if let prepared = await preparedThreads.response(homePath: binding.homePath, threadID: binding.threadID, generation: generation) {
-            return prepared
+            if prepared["sandbox"]?["type"]?.stringValue == (binding.permission == .discussion ? "readOnly" : "workspaceWrite") { return prepared }
+            await preparedThreads.forget(homePath: binding.homePath, threadID: binding.threadID)
         }
         var params: [String: CodexJSONValue] = [
-            "threadId": .string(binding.threadID), "cwd": .string(projectPath),
+            "threadId": .string(binding.threadID), "excludeTurns": .bool(true), "cwd": .string(projectPath),
             "sandbox": .string(binding.permission.sandbox), "modelProvider": .string("openai"),
             "approvalPolicy": .string(binding.permission == .discussion ? "never" : "on-request"),
             "approvalsReviewer": .string("user"), "allowProviderModelFallback": .bool(false),
@@ -105,6 +106,57 @@ struct CodexGroupAdapter: Sendable {
         // The coordinator's submission validator checks the entire response before turn/start.
         await preparedThreads.remember(homePath: binding.homePath, threadID: binding.threadID, generation: generation, response: resumed)
         return resumed
+    }
+
+    func reconfigure(_ binding: HarvisGroupBinding, projectPath: String, permission: HarvisGroupPermission) async throws -> HarvisGroupBinding {
+        guard try await identity(homePath: binding.homePath) == binding.accountIdentity else { throw HarvisGroupError.invalid("Profile identity changed.") }
+        let connection = await pool.connection(for: binding.homePath)
+        let generation = try await connection.connect()
+        await preparedThreads.forget(homePath: binding.homePath, threadID: binding.threadID)
+        // Resume only loads/subscribes. On an already loaded native thread its
+        // overrides may be ignored; settings/update is the explicit mutation API.
+        let before = try await prepare(binding, projectPath: projectPath, connection: connection)
+        guard await connection.connectionID() == generation,
+              before["thread"]?["id"]?.stringValue == binding.threadID,
+              before["thread"]?["status"]?["type"]?.stringValue == "idle" else {
+            await preparedThreads.forget(homePath: binding.homePath, threadID: binding.threadID)
+            throw HarvisGroupError.invalid("Native thread is not confirmed idle; permission update was not sent.")
+        }
+        var policy: [String: CodexJSONValue] = [
+            "type": .string(permission == .discussion ? "readOnly" : "workspaceWrite"),
+            "networkAccess": .bool(false),
+        ]
+        if permission == .workspaceWrite { policy["writableRoots"] = .array([.string(Self.normalize(projectPath))]) }
+        var settings: [String: CodexJSONValue] = [
+            "threadId": .string(binding.threadID), "cwd": .string(projectPath),
+            "sandboxPolicy": .object(policy),
+            "approvalPolicy": .string(permission == .discussion ? "never" : "on-request"),
+            "approvalsReviewer": .string("user"),
+        ]
+        if let model = binding.model { settings["model"] = .string(model) }
+        if let effort = binding.reasoningEffort { settings["effort"] = .string(effort) }
+        _ = try await connection.request(method: "thread/settings/update", params: .object(settings))
+        // The acknowledgment is empty; verify effective settings by a fresh
+        // native readback, never by the old generation-bound prepared response.
+        await preparedThreads.forget(homePath: binding.homePath, threadID: binding.threadID)
+        var updated = binding
+        updated.permission = permission
+        let response = try await prepare(updated, projectPath: projectPath, connection: connection)
+        let actualSandbox = response["sandbox"]?["type"]?.stringValue ?? "missing"
+        let actualApproval = response["approvalPolicy"]?.stringValue ?? "missing"
+        let threadMatch = response["thread"]?["id"]?.stringValue == binding.threadID
+        let cwdMatch = response["cwd"]?.stringValue.map(Self.normalize) == Self.normalize(projectPath)
+        let roots = response["sandbox"]?["writableRoots"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        let rootsMatch = roots.allSatisfy { Self.normalize($0) == Self.normalize(projectPath) }
+        guard await connection.connectionID() == generation, threadMatch, cwdMatch,
+              actualSandbox == (permission == .discussion ? "readOnly" : "workspaceWrite"),
+              actualApproval == (permission == .discussion ? "never" : "on-request"),
+              response["approvalsReviewer"]?.stringValue == "user",
+              response["sandbox"]?["networkAccess"]?.boolValue != true, rootsMatch else {
+            await preparedThreads.forget(homePath: binding.homePath, threadID: binding.threadID)
+            throw HarvisGroupError.invalid("Native permissions were not confirmed (sandbox=\(actualSandbox), approval=\(actualApproval), cwdMatch=\(cwdMatch), threadMatch=\(threadMatch)); no turn was submitted.")
+        }
+        return updated
     }
 
     func turns(_ binding: HarvisGroupBinding, cursor: String? = nil) async throws -> CodexJSONValue {
@@ -127,6 +179,10 @@ struct CodexGroupAdapter: Sendable {
     static func normalize(_ path: String) -> String {
         URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true).standardizedFileURL.resolvingSymlinksInPath().path
     }
+    static func finalText(in turn: CodexJSONValue) -> String {
+        let messages = (turn["items"]?.arrayValue ?? []).filter { $0["type"]?.stringValue == "agentMessage" }
+        return (messages.last(where: { $0["phase"]?.stringValue == "final_answer" }) ?? messages.last)?["text"]?.stringValue ?? ""
+    }
     static func text(in turn: CodexJSONValue) -> String {
         (turn["items"]?.arrayValue ?? []).filter { $0["type"]?.stringValue == "agentMessage" }
             .compactMap { $0["text"]?.stringValue }.joined(separator: "\n\n")
@@ -143,6 +199,7 @@ actor CodexGroupPreparedThreads {
         let value = entries[key(homePath, threadID)]
         return value?.generation == generation ? value?.response : nil
     }
+    func forget(homePath: String, threadID: String) { entries.removeValue(forKey: key(homePath, threadID)) }
     func remember(homePath: String, threadID: String, generation: UUID, response: CodexJSONValue) {
         entries[key(homePath, threadID)] = Entry(generation: generation, response: response)
     }

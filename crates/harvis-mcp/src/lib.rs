@@ -1,3 +1,4 @@
+mod group_chat;
 use anyhow::{bail, Context, Result};
 use harvis_core::time::now_rfc3339;
 use harvis_integrations::hub::{
@@ -56,6 +57,7 @@ pub const SERVER_NAME: &str = "harvis";
 pub const SERVER_VERSION: &str = "0.38.0-rust-alpha";
 
 const TOOL_NAMES: &[&str] = &[
+    "harvis_group_list", "harvis_group_status", "harvis_group_send", "harvis_group_results", "harvis_group_cancel", "harvis_group_recover",
     "harvis_init_profile",
     "harvis_init_workspace",
     "harvis_scan_inbox",
@@ -264,6 +266,7 @@ fn tools() -> Vec<Value> {
     TOOL_NAMES
         .iter()
         .map(|name| {
+            if let Some(tool) = crate::group_chat::tool(name) { return tool; }
             json!({
                 "name": name,
                 "description": tool_description(name),
@@ -346,6 +349,7 @@ fn tool_description(name: &str) -> &'static str {
 
 fn call_tool(name: &str, args: &Value) -> std::result::Result<Value, RpcError> {
     let data = match name {
+        name if crate::group_chat::is_group_tool(name) => crate::group_chat::call(name, args).map_err(|error| RpcError::new(-32000, error.to_string()))?,
         "harvis_init_profile" => {
             let profile_root = optional_path(args, "profile_root", "~/.harvis");
             let messages = init_profile(&profile_root, optional_bool(args, "force", false)?)?;

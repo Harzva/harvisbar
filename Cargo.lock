@@ -449,6 +449,7 @@ dependencies = [
 name = "harvis-core"
 version = "0.44.0"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
  "thiserror 1.0.69",

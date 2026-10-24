@@ -427,6 +427,9 @@ final class HarvisRuntimeModel: ObservableObject {
         store: HarvisGroupStore(url: groupDataDirectory.appendingPathComponent("groups-v1.json")))
     lazy var groupComposerState = HarvisGroupComposerState(store: HarvisGroupComposerStore(
         url: groupDataDirectory.appendingPathComponent("composer-v1.json")))
+    @Published private(set) var groupControlServiceStatus = "后台接口尚未启动"
+    private let groupControlSocketURL: URL
+    private var groupControlServer: HarvisGroupControlServer?
     private var groupActivationTask: Task<Void, Never>?
     let codexThreadSnapshotStore: any CodexThreadSnapshotStoring
     let dshMetaAgentCoordinator: DshMetaAgentCoordinator
@@ -488,6 +491,10 @@ final class HarvisRuntimeModel: ObservableObject {
         self.defaults = defaults
         self.groupDataDirectory = groupDataDirectory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("HarvisBar/GroupChat", isDirectory: true)
+        // A fixture's socket stays beside its injected stores, never beside
+        // the user's production ledger or another running app's socket.
+        self.groupControlSocketURL = groupDataDirectory?.appendingPathComponent("control.sock")
+            ?? HarvisGroupControlServer.defaultSocketURL()
         self.codexPreferences = codexPreferences ?? CodexThreadPreferences(defaults: defaults)
         self.projectOrganizationStore = ManagedProjectOrganizationStore(defaults: defaults)
         self.codexTaskDelivery = delivery
@@ -1068,7 +1075,10 @@ final class HarvisRuntimeModel: ObservableObject {
 
     func activateGroupChat() async {
         if let groupActivationTask { await groupActivationTask.value; return }
-        guard !groupChat.isReady || !groupTaskDelivery.isReady || !groupComposerState.isReady else { return }
+        if groupChat.isReady, groupTaskDelivery.isReady, groupComposerState.isReady {
+            startGroupControlServiceIfNeeded()
+            return
+        }
         let task = Task { [weak self] in
             guard let self else { return }
             await groupComposerState.activate()
@@ -1077,10 +1087,56 @@ final class HarvisRuntimeModel: ObservableObject {
             await groupTaskDelivery.activate(probeExecutablePath: serviceManagerPath)
             guard groupTaskDelivery.isReady else { return }
             await groupChat.recover()
+            startGroupControlServiceIfNeeded()
         }
         groupActivationTask = task
         await task.value
         groupActivationTask = nil
+    }
+
+    var groupControlSocketPath: String { groupControlSocketURL.path }
+
+    var groupMCPConfiguration: String {
+        let bundledWrapper = Self.detectBundledPluginRoot().map {
+            URL(fileURLWithPath: $0).appendingPathComponent("scripts/harvis").path
+        }
+        let command = bundledWrapper.flatMap {
+            FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil
+        } ?? serviceManagerPath
+        let configuration: [String: Any] = ["mcpServers": ["harvis-groups": [
+            "command": command,
+            "args": ["mcp"],
+            "env": ["HARVIS_GROUP_SOCKET": groupControlSocketPath],
+        ]]]
+        guard let data = try? JSONSerialization.data(withJSONObject: configuration,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]),
+              let text = String(data: data, encoding: .utf8) else { return "{}" }
+        return text
+    }
+
+    func retryGroupControlService() {
+        Task { await activateGroupChat() }
+    }
+
+    private func startGroupControlServiceIfNeeded() {
+        guard groupControlServer == nil, groupChat.isReady, groupTaskDelivery.isReady else { return }
+        do {
+            let api = HarvisGroupControlAPI(coordinator: groupChat)
+            let server = HarvisGroupControlServer(socketURL: groupControlSocketURL) { request in
+                await api.handle(request)
+            }
+            try server.start()
+            groupControlServer = server
+            groupControlServiceStatus = "本机后台接口运行中"
+        } catch {
+            groupControlServiceStatus = "后台接口未启动：\(error.localizedDescription)"
+        }
+    }
+
+    func stopGroupControlService() {
+        groupControlServer?.stop()
+        groupControlServer = nil
+        groupControlServiceStatus = "后台接口已停止"
     }
 
     func refreshAll() async {

@@ -14,6 +14,12 @@ actor HarvisGroupStore {
         var groups = envelope.groups
         for g in groups.indices {
             for d in groups[g].dispatches.indices where !groups[g].dispatches[d].state.isTerminal {
+                let id = groups[g].dispatches[d].id
+                let planned = groups[g].runs.contains { run in
+                    (run.ownerDispatchID == id && run.ownerDispatchState == .planned && !run.state.isTerminal)
+                        || run.steps.contains { $0.dispatchID == id && $0.state == .planned }
+                }
+                if planned { continue }
                 groups[g].dispatches[d].state = .deliveryUnknown
                 groups[g].dispatches[d].lastError = "Execution interrupted by restart. Inspect native history; this dispatch was not resent."
             }
@@ -43,6 +49,16 @@ actor HarvisGroupStore {
                   Set(group.messages.map(\.sequence)).count == group.messages.count,
                   group.messages.allSatisfy({ $0.sequence > 0 && $0.sequence <= group.lastSequence }) else {
                 throw HarvisGroupError.invalid("Invalid member or message identities in group state.")
+            }
+            if let configuration = group.orchestration {
+                guard configuration.ownerMemberID.map({ memberIDs.contains($0) }) ?? true,
+                      Set(configuration.runs.map(\.id)).count == configuration.runs.count,
+                      Set(configuration.requests.map(\.requestID)).count == configuration.requests.count else { throw HarvisGroupError.invalid("Invalid group owner/run identities.") }
+                for run in configuration.runs {
+                    guard messageIDs.contains(run.rootMessageID), Set(run.steps.map(\.id)).count == run.steps.count,
+                          Set(run.steps.map(\.dispatchID)).count == run.steps.count,
+                          run.steps.allSatisfy({ memberIDs.contains($0.memberID) }) else { throw HarvisGroupError.invalid("Invalid orchestration task ledger.") }
+                }
             }
             var deliveryKeys: Set<String> = []
             for dispatch in group.dispatches {
